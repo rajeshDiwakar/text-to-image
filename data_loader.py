@@ -158,7 +158,7 @@ if dataset == '102flowers':
     # # tl.visualize.images2d(b_images, second=5, saveable=True, name='temp2')
     # exit()
 
-import pickle
+import joblib as pickle
 def save_all(targets, file):
     with open(file, 'wb') as f:
         pickle.dump(targets, f)

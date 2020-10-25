@@ -12,7 +12,7 @@ import gzip
 import zipfile
 from . import visualize
 from . import nlp
-import pickle
+import joblib as pickle
 from six.moves import urllib
 from six.moves import cPickle
 from six.moves import zip

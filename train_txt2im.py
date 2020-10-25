@@ -18,7 +18,7 @@ import model
 
 ###======================== PREPARE DATA ====================================###
 print("Loading data from pickle ...")
-import pickle
+import joblib as pickle
 with open("_vocab.pickle", 'rb') as f:
     vocab = pickle.load(f)
 with open("_image_train.pickle", 'rb') as f:

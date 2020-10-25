@@ -10,7 +10,7 @@ import math
 
 import pymongo
 import gridfs
-import pickle
+import joblib as pickle
 from pymongo import MongoClient
 from datetime import datetime
 

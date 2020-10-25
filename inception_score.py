@@ -97,7 +97,7 @@ if softmax is None:
     ###======================== PREPARE DATA ====================================###
     ## Load Oxford 102 flowers dataset
     # from data_loader import *
-    import pickle
+    import joblib as pickle
 
     # with open("_vocab.pickle", 'rb') as f:
     #     vocab = pickle.load(f)
