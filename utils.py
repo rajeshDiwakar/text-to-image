@@ -6,6 +6,7 @@ import scipy.misc
 import numpy as np
 import re
 import string
+import imageio
 
 """ The functions here will be merged into TensorLayer after finishing this project.
 """
@@ -68,8 +69,11 @@ def merge(images, size):
         img[j*h:j*h+h, i*w:i*w+w, :] = image
     return img
 
+#def imsave(images, size, path):
+#    return scipy.misc.imsave(path, merge(images, size))
+
 def imsave(images, size, path):
-    return scipy.misc.imsave(path, merge(images, size))
+    return imageio.imwrite(path, merge(images, size))
 
 def save_images(images, size, image_path):
     return imsave(images, size, image_path)

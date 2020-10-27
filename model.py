@@ -822,6 +822,46 @@ def rnn_embed(input_seqs, is_train=True, reuse=False, return_embed=False):
                      name = 'rnn/dynamic')
         return network
 
+
+def dense_embed(input_seqs, is_train=True, reuse=False, return_embed=False):
+    """ txt --> t_dim """
+    w_init = tf.random_normal_initializer(stddev=0.02)
+    # if tf.__version__ <= '0.12.1':
+    #     LSTMCell = tf.nn.rnn_cell.LSTMCell
+    # else:
+    #     LSTMCell = tf.contrib.rnn.BasicLSTMCell
+    with tf.variable_scope("densetxt", reuse=reuse):
+        tl.layers.set_name_reuse(reuse)
+        # network = EmbeddingInputlayer(
+        #              inputs = input_seqs,
+        #              vocabulary_size = vocab_size,
+        #              embedding_size = word_embedding_size,
+        #              E_init = w_init,
+        #              name = 'rnn/wordembed')
+        # network = DynamicRNNLayer(network,
+        #              cell_fn = LSTMCell,
+        #              cell_init_args = {'state_is_tuple' : True, 'reuse': reuse},  # for TF1.1, TF1.2 dont need to set reuse
+        #              n_hidden = rnn_hidden_size,
+        #              dropout = (keep_prob if is_train else None),
+        #              initializer = w_init,
+        #              sequence_length = tl.layers.retrieve_seq_length_op2(input_seqs),
+        #              return_last = True,
+        #              name = 'rnn/dynamic')
+        # network = tf.compat.v1.layers.dense(
+        #             input_seqs, t_dim, activation=tf.nn.relu, use_bias=True, kernel_initializer=None,
+        #             bias_initializer=tf.zeros_initializer(), kernel_regularizer=None,
+        #             bias_regularizer=None, activity_regularizer=None, kernel_constraint=None,
+        #             bias_constraint=None, trainable=is_train, name=None, reuse=reuse
+        #         )
+        network= InputLayer(input_seqs, name='/intext')
+        network = DenseLayer(network, n_units= 2*t_dim,
+                act=tf.nn.relu,
+                W_init = w_init, b_init = None)
+        network = DenseLayer(network, n_units= t_dim,
+                act=tf.identity,
+                W_init = w_init, b_init = None)
+        return network
+
 def cnn_encoder(inputs, is_train=True, reuse=False, name='cnnftxt', return_h3=False):
     """ 64x64 --> t_dim, for text-image mapping """
     w_init = tf.random_normal_initializer(stddev=0.02)

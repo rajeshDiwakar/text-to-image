@@ -11,28 +11,48 @@ import numpy as np
 import scipy
 from scipy.io import loadmat
 import time, os, re, nltk
+import random
 
 from utils import *
 from model import *
 import model
 
+# save np.load
+np_load_old = np.load
+# modify the default parameters of np.load
+np.load = lambda *a,**k: np_load_old(*a, allow_pickle=True, **k)
 ###======================== PREPARE DATA ====================================###
 print("Loading data from pickle ...")
 import joblib as pickle
-with open("_vocab.pickle", 'rb') as f:
-    vocab = pickle.load(f)
-with open("_image_train.pickle", 'rb') as f:
-    _, images_train = pickle.load(f)
-with open("_image_test.pickle", 'rb') as f:
-    _, images_test = pickle.load(f)
-with open("_n.pickle", 'rb') as f:
-    n_captions_train, n_captions_test, n_captions_per_image, n_images_train, n_images_test = pickle.load(f)
-with open("_caption.pickle", 'rb') as f:
-    captions_ids_train, captions_ids_test = pickle.load(f)
+# with open("_vocab.pickle", 'rb') as f:
+#     vocab = pickle.load(f)
+# with open("_image_train.pickle", 'rb') as f:
+#     _, images_train = pickle.load(f)
+# with open("_image_test.pickle", 'rb') as f:
+#     _, images_test = pickle.load(f)
+# with open("_n.pickle", 'rb') as f:
+#     n_captions_train, n_captions_test, n_captions_per_image, n_images_train, n_images_test = pickle.load(f)
+# with open("_caption.pickle", 'rb') as f:
+#     captions_ids_train, captions_ids_test = pickle.load(f)
+
+with open('_caption.pickle','rb') as f:
+    captions_ids = pickle.load(f)
+with open('_id2img.pickle','rb') as f:
+    id2img = pickle.load(f)
+    for k,v in id2img.items():
+        id2img[k]=v.astype(np.float32)
+with open('_textid2imageids.pickle','rb') as f:
+    textid2imageids = pickle.load(f)
+n_captions = len(captions_ids)
+captions_ids_train, captions_ids_test = captions_ids[: int(n_captions*0.8)], captions_ids[int(n_captions*0.8) :]
+n_captions_train,n_captions_test = len(captions_ids_train), len(captions_ids_test)
+n_images_train, n_images_test = n_captions_train,n_captions_test
+n_images_train = sum([len(textid2imageids[i]) for i in range(n_captions_train)])
+captions_ids_train = np.array(captions_ids_train)
 # images_train_256 = np.array(images_train_256)
 # images_test_256 = np.array(images_test_256)
-images_train = np.array(images_train)
-images_test = np.array(images_test)
+# images_train = np.array(images_train)
+# images_test = np.array(images_test)
 
 # print(n_captions_train, n_captions_test)
 # exit()
@@ -51,16 +71,16 @@ def main_train():
     ###======================== DEFIINE MODEL ===================================###
     t_real_image = tf.placeholder('float32', [batch_size, image_size, image_size, 3], name = 'real_image')
     t_wrong_image = tf.placeholder('float32', [batch_size ,image_size, image_size, 3], name = 'wrong_image')
-    t_real_caption = tf.placeholder(dtype=tf.int64, shape=[batch_size, None], name='real_caption_input')
-    t_wrong_caption = tf.placeholder(dtype=tf.int64, shape=[batch_size, None], name='wrong_caption_input')
+    t_real_caption = tf.placeholder(dtype=tf.float32, shape=[batch_size, 768], name='real_caption_input')
+    t_wrong_caption = tf.placeholder(dtype=tf.float32, shape=[batch_size, 768], name='wrong_caption_input')
     t_z = tf.placeholder(tf.float32, [batch_size, z_dim], name='z_noise')
 
     ## training inference for text-to-image mapping
     net_cnn = cnn_encoder(t_real_image, is_train=True, reuse=False)
     x = net_cnn.outputs
-    v = rnn_embed(t_real_caption, is_train=True, reuse=False).outputs
+    v = dense_embed(t_real_caption, is_train=True, reuse=False).outputs
     x_w = cnn_encoder(t_wrong_image, is_train=True, reuse=True).outputs
-    v_w = rnn_embed(t_wrong_caption, is_train=True, reuse=True).outputs
+    v_w = dense_embed(t_wrong_caption, is_train=True, reuse=True).outputs
 
     alpha = 0.2 # margin alpha
     rnn_loss = tf.reduce_mean(tf.maximum(0., alpha - cosine_similarity(x, v) + cosine_similarity(x, v_w))) + \
@@ -70,7 +90,7 @@ def main_train():
     generator_txt2img = model.generator_txt2img_resnet
     discriminator_txt2img = model.discriminator_txt2img_resnet
 
-    net_rnn = rnn_embed(t_real_caption, is_train=False, reuse=True)
+    net_rnn = dense_embed(t_real_caption, is_train=False, reuse=True)
     net_fake_image, _ = generator_txt2img(t_z,
                     net_rnn.outputs,
                     is_train=True, reuse=False, batch_size=batch_size)
@@ -83,12 +103,12 @@ def main_train():
                     # t_wrong_image,
                     t_real_image,
                     # net_rnn.outputs,
-                    rnn_embed(t_wrong_caption, is_train=False, reuse=True).outputs,
+                    dense_embed(t_wrong_caption, is_train=False, reuse=True).outputs,
                     is_train=True, reuse=True)
 
     ## testing inference for txt2img
     net_g, _ = generator_txt2img(t_z,
-                    rnn_embed(t_real_caption, is_train=False, reuse=True).outputs,
+                    dense_embed(t_real_caption, is_train=False, reuse=True).outputs,
                     is_train=False, reuse=True, batch_size=batch_size)
 
     d_loss1 = tl.cost.sigmoid_cross_entropy(disc_real_image_logits, tf.ones_like(disc_real_image_logits), name='d1')
@@ -133,31 +153,32 @@ def main_train():
     load_and_assign_npz(sess=sess, name=net_cnn_name, model=net_cnn)
     load_and_assign_npz(sess=sess, name=net_g_name, model=net_g)
     load_and_assign_npz(sess=sess, name=net_d_name, model=net_d)
-
+    np.load = np_load_old
     ## seed for generation, z and sentence ids
     sample_size = batch_size
     sample_seed = np.random.normal(loc=0.0, scale=1.0, size=(sample_size, z_dim)).astype(np.float32)
         # sample_seed = np.random.uniform(low=-1, high=1, size=(sample_size, z_dim)).astype(np.float32)]
     n = int(sample_size / ni)
-    sample_sentence = ["the flower shown has yellow anther red pistil and bright red petals."] * n + \
-                      ["this flower has petals that are yellow, white and purple and has dark lines"] * n + \
-                      ["the petals on this flower are white with a yellow center"] * n + \
-                      ["this flower has a lot of small round pink petals."] * n + \
-                      ["this flower is orange in color, and has petals that are ruffled and rounded."] * n + \
-                      ["the flower has yellow petals and the center of it is brown."] * n + \
-                      ["this flower has petals that are blue and white."] * n +\
-                      ["these white flowers have petals that start off white in color and end in a white towards the tips."] * n
+    # sample_sentence = ["the flower shown has yellow anther red pistil and bright red petals."] * n + \
+    #                   ["this flower has petals that are yellow, white and purple and has dark lines"] * n + \
+    #                   ["the petals on this flower are white with a yellow center"] * n + \
+    #                   ["this flower has a lot of small round pink petals."] * n + \
+    #                   ["this flower is orange in color, and has petals that are ruffled and rounded."] * n + \
+    #                   ["the flower has yellow petals and the center of it is brown."] * n + \
+    #                   ["this flower has petals that are blue and white."] * n +\
+    #                   ["these white flowers have petals that start off white in color and end in a white towards the tips."] * n
+    #
+    # # sample_sentence = captions_ids_test[0:sample_size]
+    # for i, sentence in enumerate(sample_sentence):
+    #     print("seed: %s" % sentence)
+    #     sentence = preprocess_caption(sentence)
+    #     sample_sentence[i] = [vocab.word_to_id(word) for word in nltk.tokenize.word_tokenize(sentence)] + [vocab.end_id]    # add END_ID
+    #     # sample_sentence[i] = [vocab.word_to_id(word) for word in sentence]
+    #     # print(sample_sentence[i])
+    # sample_sentence = tl.prepro.pad_sequences(sample_sentence, padding='post')
+    samples_sentence = captions_ids[:batch_size]
 
-    # sample_sentence = captions_ids_test[0:sample_size]
-    for i, sentence in enumerate(sample_sentence):
-        print("seed: %s" % sentence)
-        sentence = preprocess_caption(sentence)
-        sample_sentence[i] = [vocab.word_to_id(word) for word in nltk.tokenize.word_tokenize(sentence)] + [vocab.end_id]    # add END_ID
-        # sample_sentence[i] = [vocab.word_to_id(word) for word in sentence]
-        # print(sample_sentence[i])
-    sample_sentence = tl.prepro.pad_sequences(sample_sentence, padding='post')
-
-    n_epoch = 100 # 600
+    n_epoch =  600
     print_freq = 1
     n_batch_epoch = int(n_images_train / batch_size)
     # exit()
@@ -179,21 +200,48 @@ def main_train():
             ## get matched text
             idexs = get_random_int(min=0, max=n_captions_train-1, number=batch_size)
             b_real_caption = captions_ids_train[idexs]
-            b_real_caption = tl.prepro.pad_sequences(b_real_caption, padding='post')
+            # b_real_caption = tl.prepro.pad_sequences(b_real_caption, padding='post')
             ## get real image
-            b_real_images = images_train[np.floor(np.asarray(idexs).astype('float')/n_captions_per_image).astype('int')]
+            # b_real_images = images_train[np.floor(np.asarray(idexs).astype('float')/n_captions_per_image).astype('int')]
+            b_real_images = [np.stack([id2img[img_id] for img_id in textid2imageids[textid]],axis=-1) for textid in idexs]
             # save_images(b_real_images, [ni, ni], 'samples/step1_gan-cls/train_00.png')
             ## get wrong caption
             idexs = get_random_int(min=0, max=n_captions_train-1, number=batch_size)
             b_wrong_caption = captions_ids_train[idexs]
-            b_wrong_caption = tl.prepro.pad_sequences(b_wrong_caption, padding='post')
+            # b_wrong_caption = tl.prepro.pad_sequences(b_wrong_caption, padding='post')
             ## get wrong image
-            idexs2 = get_random_int(min=0, max=n_images_train-1, number=batch_size)
-            b_wrong_images = images_train[idexs2]
+            l = list(idexs)
+            l.sort()
+            similar_set = set([j for i in idexs for j in range(i-5,i+5)])
+            disjoint_set = []
+            # count = 0
+            # li = 0
+            # while count < n_captions_train:
+            #     if li < batch_size:
+            #         if count> l[li]-5 and count <l[li]+5:
+            #             count = l[li]+5
+            #             li+=1
+            #     else:
+            #         disjoint_set.append(count)
+            #         print(str(count))
+            #         count += 1
+            # print(disjoint_set)[:10]
+            # idexs2 = get_random_int(min=0, max=n_images_train-1, number=batch_size)
+            idexs2 = [0]*batch_size #random.sample(disjoint_set,batch_size)
+            count = 0
+            while count<batch_size:
+                s = random.randint(0,n_captions_train-1)
+                if s not in similar_set:
+                    idexs2[count]=s
+                    count+=1
+            # b_wrong_images = images_train[idexs2]
+            b_wrong_images = [np.stack([id2img[img_id] for img_id in textid2imageids[textid]],axis=-1) for textid in idexs2]
             ## get noise
             b_z = np.random.normal(loc=0.0, scale=1.0, size=(sample_size, z_dim)).astype(np.float32)
                 # b_z = np.random.uniform(low=-1, high=1, size=[batch_size, z_dim]).astype(np.float32)
 
+            # b_real_images = np.array(b_real_images,dtype=np.float32)
+            # b_wrong_images = np.array(b_wrong_images,dtype=np.float32)
             b_real_images = threading_data(b_real_images, prepro_img, mode='train')   # [0, 255] --> [-1, 1] + augmentation
             b_wrong_images = threading_data(b_wrong_images, prepro_img, mode='train')
             ## updates text-to-image mapping
@@ -218,11 +266,11 @@ def main_train():
                             t_real_caption : b_real_caption,
                             t_z : b_z})
 
-            print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4fs, d_loss: %.8f, g_loss: %.8f, rnn_loss: %.8f" \
+            sys.stdout.write("\rEpoch: [%2d/%2d] [%4d/%4d] time: %4.4fs, d_loss: %.8f, g_loss: %.8f, rnn_loss: %.8f" \
                         % (epoch, n_epoch, step, n_batch_epoch, time.time() - step_time, errD, errG, errRNN))
-
+            sys.stdout.flush()
         if (epoch + 1) % print_freq == 0:
-            print(" ** Epoch %d took %fs" % (epoch, time.time()-start_time))
+            print("\n ** Epoch %d took %fs" % (epoch, time.time()-start_time))
             img_gen, rnn_out = sess.run([net_g.outputs, net_rnn.outputs], feed_dict={
                                         t_real_caption : sample_sentence,
                                         t_z : sample_seed})
