@@ -856,10 +856,10 @@ def dense_embed(input_seqs, is_train=True, reuse=False, return_embed=False):
         network= InputLayer(input_seqs, name='/intext')
         network = DenseLayer(network, n_units= 2*t_dim,
                 act=tf.nn.relu,
-                W_init = w_init, b_init = None)
+                W_init = w_init, b_init = None,name='texth1')
         network = DenseLayer(network, n_units= t_dim,
                 act=tf.identity,
-                W_init = w_init, b_init = None)
+                W_init = w_init, b_init = None,name='texth2')
         return network
 
 def cnn_encoder(inputs, is_train=True, reuse=False, name='cnnftxt', return_h3=False):
