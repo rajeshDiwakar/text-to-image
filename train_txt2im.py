@@ -17,6 +17,86 @@ from utils import *
 from model import *
 import model
 
+###==================================================================###
+
+from pydrive.auth import GoogleAuth
+from pydrive.drive import GoogleDrive
+
+if not os.path.isfile('mycreds.txt'):
+    with open('mycreds.txt','w') as f:
+        f.write('{"access_token": "ya29.a0AfH6SMC_aOt4BLq-OQ1oN4txyT5Guk9KMeEzqYJDjo4AkqD0fMJnIdQm4TGz3PQit8qNa-QEg3hdg66ic2pLErifxwsEhgPP-MIa947Ayigh8c5czN64T9IxCyLkR2M-5ygdjOhV5OzuXw-O6LfBJG9vBwMkyg9OKL0", "client_id": "883051571054-2e0bv2mjqra6i3cd6c915hkjgtdutct0.apps.googleusercontent.com", "client_secret": "NmzemQWSeUm_WWTbmUJi5xt7", "refresh_token": "1//0gE7zkyCPJ4RpCgYIARAAGBASNwF-L9IrISJx8AG8doLKF1C8RMbuvkqS6BsxGXaYJfqlB-RbrtmIESmVIA2krp-rK-Ylm26klmU", "token_expiry": "2020-07-29T16:47:41Z", "token_uri": "https://oauth2.googleapis.com/token", "user_agent": null, "revoke_uri": "https://oauth2.googleapis.com/revoke", "id_token": null, "id_token_jwt": null, "token_response": {"access_token": "ya29.a0AfH6SMC_aOt4BLq-OQ1oN4txyT5Guk9KMeEzqYJDjo4AkqD0fMJnIdQm4TGz3PQit8qNa-QEg3hdg66ic2pLErifxwsEhgPP-MIa947Ayigh8c5czN64T9IxCyLkR2M-5ygdjOhV5OzuXw-O6LfBJG9vBwMkyg9OKL0", "expires_in": 3599, "refresh_token": "1//0gE7zkyCPJ4RpCgYIARAAGBASNwF-L9IrISJx8AG8doLKF1C8RMbuvkqS6BsxGXaYJfqlB-RbrtmIESmVIA2krp-rK-Ylm26klmU", "scope": "https://www.googleapis.com/auth/drive", "token_type": "Bearer"}, "scopes": ["https://www.googleapis.com/auth/drive"], "token_info_uri": "https://oauth2.googleapis.com/tokeninfo", "invalid": false, "_class": "OAuth2Credentials", "_module": "oauth2client.client"}')
+
+        # {"access_token": "ya29.a0AfH6SMCDGn8XAOVlzeT47aIMf7QlauIfWz3G9fXrRTyX0JgSllcpHrAIuj6s6zqNTI0kK46c4LmVQp2svHpCSltdQrSgLo-74UtFWv4mdUX0Rnt5TxM7I_OaewjmLl6vH8wmrk1bccDAWBY_-vTeBI-eEedfSNRQu4Mc", "client_id": "883051571054-2e0bv2mjqra6i3cd6c915hkjgtdutct0.apps.googleusercontent.com", "client_secret": "NmzemQWSeUm_WWTbmUJi5xt7", "refresh_token": "1//0gE7zkyCPJ4RpCgYIARAAGBASNwF-L9IrISJx8AG8doLKF1C8RMbuvkqS6BsxGXaYJfqlB-RbrtmIESmVIA2krp-rK-Ylm26klmU", "token_expiry": "2020-08-09T09:46:00Z", "token_uri": "https://oauth2.googleapis.com/token", "user_agent": null, "revoke_uri": "https://oauth2.googleapis.com/revoke", "id_token": null, "id_token_jwt": null, "token_response": {"access_token": "ya29.a0AfH6SMCDGn8XAOVlzeT47aIMf7QlauIfWz3G9fXrRTyX0JgSllcpHrAIuj6s6zqNTI0kK46c4LmVQp2svHpCSltdQrSgLo-74UtFWv4mdUX0Rnt5TxM7I_OaewjmLl6vH8wmrk1bccDAWBY_-vTeBI-eEedfSNRQu4Mc", "expires_in": 3599, "scope": "https://www.googleapis.com/auth/drive", "token_type": "Bearer"}, "scopes": ["https://www.googleapis.com/auth/drive"], "token_info_uri": "https://oauth2.googleapis.com/tokeninfo", "invalid": false, "_class": "OAuth2Credentials", "_module": "oauth2client.client"}
+
+parent_id='15KEW4Oqi_5xuaVI97YMuLVhXnpmgrE3A'
+gauth = GoogleAuth()
+# Try to load saved client credentials
+gauth.LoadCredentialsFile("mycreds.txt")
+# if gauth.credentials is None:
+#     # Authenticate if they're not there
+#     gauth.LocalWebserverAuth()
+if gauth.access_token_expired:
+    # Refresh them if expired
+    gauth.Refresh()
+else:
+    # Initialize the saved creds
+    gauth.Authorize()
+# Save the current credentials to a file
+gauth.SaveCredentialsFile("mycreds.txt")
+
+# drive = GoogleDrive(gauth)
+
+def authorize_drive():
+    # global drive
+    global gauth
+    # Try to load saved client credentials
+    gauth.LoadCredentialsFile("mycreds.txt")
+    # if gauth.credentials is None:
+    #     # Authenticate if they're not there
+    #     gauth.LocalWebserverAuth()
+    if gauth.access_token_expired:
+        # Refresh them if expired
+        gauth.Refresh()
+    else:
+        # Initialize the saved creds
+        gauth.Authorize()
+    # Save the current credentials to a file
+    gauth.SaveCredentialsFile("mycreds.txt")
+
+    drive = GoogleDrive(gauth)
+
+    return drive
+
+
+# def validate_parent_id(parent_id):
+#     global drive
+#     file_list = drive.ListFile({'q': f"title='{folder_name}' and trashed=false and mimeType='application/vnd.google-apps.folder'"}).GetList()
+#         if len(file_list) > 1:
+#             raise ValueError('There are multiple folders with that specified folder name')
+#         elif len(file_list) == 0:
+#             raise ValueError('No folders match that specified folder name')
+
+
+def upload_to_drive(list_files,parent_id):
+    # global drive
+    drive = authorize_drive()
+    # parent_id = ''# parent id
+    drive_files = drive.ListFile({'q': "'%s' in parents and trashed=false"%parent_id}).GetList()
+    drive_files = {f['title']:f for f in drive_files}
+    for path in list_files:
+        if not os.path.isfile(path): continue
+        d,f = os.path.split(path)
+        # check if file already exists and trash it
+        if f in drive_files:
+                drive_files[f].Trash()
+
+        file = drive.CreateFile({'title': f, 'parents': [{'id': parent_id}]})
+        file.SetContentFile(path)
+        file.Upload()
+
+
+
+###========================================================================
 # save np.load
 np_load_old = np.load
 # modify the default parameters of np.load
@@ -266,9 +346,9 @@ def main_train():
                             t_real_caption : b_real_caption,
                             t_z : b_z})
 
-            sys.stdout.write("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4fs, d_loss: %.8f, g_loss: %.8f, rnn_loss: %.8f" \
+            print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4fs, d_loss: %.8f, g_loss: %.8f, rnn_loss: %.8f" \
                         % (epoch, n_epoch, step, n_batch_epoch, time.time() - step_time, errD, errG, errRNN))
-            sys.stdout.flush()
+            #sys.stdout.flush()
         if (epoch + 1) % print_freq == 0:
             print("\n ** Epoch %d took %fs" % (epoch, time.time()-start_time))
             img_gen, rnn_out = sess.run([net_g.outputs, net_rnn.outputs], feed_dict={
@@ -277,7 +357,7 @@ def main_train():
 
             # img_gen = threading_data(img_gen, prepro_img, mode='rescale')
             save_images(img_gen, [ni, ni], 'samples/step1_gan-cls/train_{:02d}.png'.format(epoch))
-
+            upload_to_drive(['samples/step1_gan-cls/train_{:02d}.png'.format(epoch)],parent_id)
         ## save model
         if (epoch != 0) and (epoch % 10) == 0:
             tl.files.save_npz(net_cnn.all_params, name=net_cnn_name, sess=sess)
