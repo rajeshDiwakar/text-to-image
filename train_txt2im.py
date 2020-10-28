@@ -176,7 +176,7 @@ def main_train():
     #     # sample_sentence[i] = [vocab.word_to_id(word) for word in sentence]
     #     # print(sample_sentence[i])
     # sample_sentence = tl.prepro.pad_sequences(sample_sentence, padding='post')
-    samples_sentence = captions_ids[:batch_size]
+    sample_sentence = captions_ids[:batch_size]
 
     n_epoch =  600
     print_freq = 1
@@ -266,7 +266,7 @@ def main_train():
                             t_real_caption : b_real_caption,
                             t_z : b_z})
 
-            sys.stdout.write("\rEpoch: [%2d/%2d] [%4d/%4d] time: %4.4fs, d_loss: %.8f, g_loss: %.8f, rnn_loss: %.8f" \
+            sys.stdout.write("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4fs, d_loss: %.8f, g_loss: %.8f, rnn_loss: %.8f" \
                         % (epoch, n_epoch, step, n_batch_epoch, time.time() - step_time, errD, errG, errRNN))
             sys.stdout.flush()
         if (epoch + 1) % print_freq == 0:
