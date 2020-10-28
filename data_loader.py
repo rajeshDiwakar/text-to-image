@@ -154,7 +154,7 @@ def load_stories_dataset(args):
                     img = rgb2gray(img)
                     # print(img.shape)
                     # exit(0)
-                img = img.astype(np.uint8)
+                img = img.astype(np.float32)
                 # images.append(img)
                 id2img[img_id] = img
                 # if need_256:

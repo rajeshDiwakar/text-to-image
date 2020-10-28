@@ -119,8 +119,8 @@ with open('_caption.pickle','rb') as f:
     captions_ids = pickle.load(f)
 with open('_id2img.pickle','rb') as f:
     id2img = pickle.load(f)
-    for k,v in id2img.items():
-        id2img[k]=v.astype(np.float32)
+    # for k,v in id2img.items():
+    #     id2img[k]=v.astype(np.float32)
 with open('_textid2imageids.pickle','rb') as f:
     textid2imageids = pickle.load(f)
 n_captions = len(captions_ids)
@@ -357,7 +357,10 @@ def main_train():
 
             # img_gen = threading_data(img_gen, prepro_img, mode='rescale')
             save_images(img_gen, [ni, ni], 'samples/step1_gan-cls/train_{:02d}.png'.format(epoch))
-            upload_to_drive(['samples/step1_gan-cls/train_{:02d}.png'.format(epoch)],parent_id)
+            try:
+                upload_to_drive(['samples/step1_gan-cls/train_{:02d}.png'.format(epoch)],parent_id)
+            except Exception as e:
+                print(e)
         ## save model
         if (epoch != 0) and (epoch % 10) == 0:
             tl.files.save_npz(net_cnn.all_params, name=net_cnn_name, sess=sess)
@@ -371,7 +374,10 @@ def main_train():
             tl.files.save_npz(net_rnn.all_params, name=net_rnn_name+str(epoch), sess=sess)
             tl.files.save_npz(net_g.all_params, name=net_g_name+str(epoch), sess=sess)
             tl.files.save_npz(net_d.all_params, name=net_d_name+str(epoch), sess=sess)
-
+            try:
+                upload_to_drive([i+str(epoch)+'.npz' for i in [net_cnn_name,net_rnn_name,net_g_name,net_d_name]],parent_id)
+            except Exception as e:
+                print(e)
         # if (epoch != 0) and (epoch % 200) == 0:
         #     sess.run(tf.initialize_variables(adam_vars))
         #     print("Re-initialize Adam")
