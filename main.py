@@ -49,13 +49,13 @@ def train(args):
 
     assert len(dataset_loader)>0, 'no image found in data dir'
 
-    model_dir = os.path.join('model',args.session)
-    output_image_dir = os.path.join(model_dir,'output')
-    os.makedirs(model_dir,exist_ok=True)
+    sess_dir = os.path.join('sessions',args.session)
+    output_image_dir = os.path.join(sess_dir,'output')
+    os.makedirs(sess_dir,exist_ok=True)
     os.makedirs(output_image_dir,exist_ok=True)
-    weight_path = os.path.join(model_dir,args.weight)
+    weight_path = os.path.join(sess_dir,args.weight)
 
-    writer = SummaryWriter(model_dir)
+    writer = SummaryWriter(os.path.join(sess_dir,'summary'))
     vae = DiscreteVAE(
         image_size = args.image_size,
         num_layers = args.num_layers,          # number of downsamples - ex. 256 / (2 ** 3) = (32 x 32 feature map)
