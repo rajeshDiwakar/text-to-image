@@ -1,0 +1,17 @@
+
+#ferry tales
+url="https://www.youtube.com/c/EnglishFairyTales/videos"
+youtube-dl -f 18 --output "%(id)s.%(ext)s"\
+      --max-downloads 50  --sleep-interval 30 \
+      --write-auto-sub --sub-lang en \
+      "$url"
+      
+# extract frames from vids
+mkdir -p images
+for i in data/*.mp4;
+do
+    bname=$(basename "$i")
+    bname=${bname%.mp4}
+    mkdir -p "images/$bname"
+    ffmpeg -i "$i" -s 64*64 -filter:v fps=fps=1/60 "images/$bname"/%0d.jpg
+done
