@@ -85,8 +85,7 @@ def train(args):
         for it,batch in enumerate(dataset_loader):
             # images = torch.randn(4, 3, 256, 256)
             it = epoch*dataset_size + it
-            images = batch[0]
-            images.to(device)
+            images = batch[0].to(device)
             optimizer.zero_grad()
             loss = vae(images, return_recon_loss = True)
             loss.backward()
