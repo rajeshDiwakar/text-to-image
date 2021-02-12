@@ -78,7 +78,7 @@ def train(args):
     print("Batch per iteration: ",dataset_size)
     optimizer = optim.Adam(vae.parameters(), lr=0.0001)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10*dataset_size,20*dataset_size], gamma=0.1)
-
+    image_list = []
     for epoch in range(args.epochs):
         running_loss = 0.0
 
@@ -97,7 +97,8 @@ def train(args):
                 torch.save(vae.state_dict(), weight_path)
                 try:
                     files = glob.glob(os.path.join(summary_dir,'*'))
-                    upload_to_drive(files,args.drive_id)
+                    upload_to_drive(files+image_list,args.drive_id)
+                    image_list = []
                 except Exception as e:
                     print('Error while uploading to drive\n',str(e))
 
@@ -118,8 +119,9 @@ def train(args):
                         npimg = img.cpu().numpy()
                         fig = plt.figure(figsize=(12,9))
                         plt.imshow(np.transpose(npimg, (1, 2, 0)))
-                        # plt.savefig( os.path.join(output_image_dir,'iter-%d_img-%d.jpg'%(epoch,i)))
-
+                        impath = os.path.join(output_image_dir,'iter-%d_img-%d.jpg'%(epoch*dataset_size+it,i))
+                        plt.savefig( impath )
+                        image_list.append(impath)
                         # writer.add_image
                         writer.add_figure('generated images',
                                 fig,
@@ -127,7 +129,7 @@ def train(args):
 
                         if i>= 0:
                             break
-            sys.stdout.write('\n[%s] Epoch:%d loss: %f\n'%(time.asctime(),epoch,running_loss/dataset_size)) # some samples are going for testing??
+            sys.stdout.write('\n[%s]Testing: Epoch:%d loss: %f\n'%(' '.join(time.asctime().split(' ')[1:-1]),epoch,running_loss/dataset_size)) # some samples are going for testing??
             scheduler.step()
 
 

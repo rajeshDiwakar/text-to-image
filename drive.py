@@ -68,6 +68,11 @@ def upload_to_drive(list_files,parent_id):
         # check if file already exists and trash it
         if f in drive_files:
                 drive_files[f].Trash()
+        elif f.startswith('events.out.tfevents'):
+            pat = '.'.join(f.split('.')[:-2])
+            for df in drive_files:
+                if df.startswith(pat):
+                    drive_files[df].Trash()
 
         file = drive.CreateFile({'title': f, 'parents': [{'id': parent_id}]})
         file.SetContentFile(path)
