@@ -106,7 +106,7 @@ def train(args):
 
                 with torch.no_grad():
                     for i, batch in enumerate(dataset_loader_test):
-                        batch = batch[0]
+                        batch = batch[0].to(device)
                         batch_pred = vae.forward(batch)
 
                         batch = torchvision.utils.make_grid(batch)
