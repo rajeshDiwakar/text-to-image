@@ -1,5 +1,5 @@
 
-import os,sys,time
+import os,sys,time, glob
 import torch, torchvision
 from dalle_pytorch import DiscreteVAE
 
@@ -92,6 +92,7 @@ def train(args):
             optimizer.step()
             sys.stdout.write('\r[%s] %6d/%6d: loss: %f'%(time.asctime(),it,args.epochs*dataset_size,loss.item()))
             running_loss += loss.item()
+            writer.add_scalar('training loss',running_loss / (it+1),epoch * dataset_size+ it)
             if it%args.save_every==(args.save_every-1):
                 torch.save(vae.state_dict(), weight_path)
                 try:
@@ -102,9 +103,7 @@ def train(args):
 
 
             if it % args.test_every == (args.test_every-1):
-                writer.add_scalar('training loss',
-                        running_loss / (it+1),
-                        epoch * dataset_size+ it)
+
                 with torch.no_grad():
                     for i, batch in enumerate(dataset_loader_test):
                         batch = batch[0]
