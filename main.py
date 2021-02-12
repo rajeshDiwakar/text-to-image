@@ -18,6 +18,8 @@ from torch.utils.tensorboard import SummaryWriter
 import warnings
 warnings.simplefilter("ignore")
 
+from drive import upload_to_drive
+
 def imshow(img):
     img = img / 2 + 0.5     # unnormalize
     npimg = img.numpy()
@@ -55,7 +57,8 @@ def train(args):
     os.makedirs(output_image_dir,exist_ok=True)
     weight_path = os.path.join(sess_dir,args.weight)
 
-    writer = SummaryWriter(os.path.join(sess_dir,'summary'))
+    summary_dir = os.path.join(sess_dir,'summary')
+    writer = SummaryWriter(summary_dir)
     vae = DiscreteVAE(
         image_size = args.image_size,
         num_layers = args.num_layers,          # number of downsamples - ex. 256 / (2 ** 3) = (32 x 32 feature map)
@@ -91,6 +94,11 @@ def train(args):
             running_loss += loss.item()
             if it%args.save_every==(args.save_every-1):
                 torch.save(vae.state_dict(), weight_path)
+                try:
+                    files = glob.glob(os.path.join(summary_dir,'*'))
+                    upload_to_drive(files,args.drive_id)
+                except Exception as e:
+                    print('Error while uploading to drive\n',str(e))
 
 
             if it % args.test_every == (args.test_every-1):
@@ -176,6 +184,7 @@ if __name__ =='__main__':
     parser.add_argument('--resume',default=0,type=int)
     parser.add_argument('--data',default='data',help='data dir. data/classes/img.jpg')
     parser.add_argument('--batch_size',default=128,type=int)
+    parser.add_argument('--drive_id',default='15KEW4Oqi_5xuaVI97YMuLVhXnpmgrE3A')
 
     parser.add_argument('--image_size',type=int,default=64)
     parser.add_argument('--num_layers',type=int,default=1)
