@@ -22,7 +22,7 @@ from drive import upload_to_drive
 
 def imshow(img):
     img = img / 2 + 0.5     # unnormalize
-    npimg = img.numpy()
+    npimg = img.cpu().numpy()
     plt.imshow(np.transpose(npimg, (1, 2, 0)))
     plt.show()
 
@@ -115,7 +115,7 @@ def train(args):
                         batch = torch.cat((batch,batch_pred),-1)
                         img = batch
                         img = img / 2 + 0.5     # unnormalize
-                        npimg = img.numpy()
+                        npimg = img.cpu().numpy()
                         fig = plt.figure(figsize=(12,9))
                         plt.imshow(np.transpose(npimg, (1, 2, 0)))
                         # plt.savefig( os.path.join(output_image_dir,'iter-%d_img-%d.jpg'%(epoch,i)))
