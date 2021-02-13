@@ -129,8 +129,8 @@ def train(args):
 
                         if i>= 0:
                             break
-            sys.stdout.write('\n[%s]Testing: Epoch:%d loss: %f\n'%(' '.join(time.asctime().split(' ')[1:-1]),epoch,running_loss/dataset_size)) # some samples are going for testing??
-            scheduler.step()
+        sys.stdout.write('\n[%s]Epoch:%d loss: %f\n'%(' '.join(time.asctime().split(' ')[1:-1]),epoch,running_loss/dataset_size)) # some samples are going for testing??
+        scheduler.step()
 
 
 
@@ -138,20 +138,20 @@ def train(args):
 def test(args):
 
     vae = DiscreteVAE(
-        image_size = 64,
-        num_layers = 1,          # number of downsamples - ex. 256 / (2 ** 3) = (32 x 32 feature map)
-        num_tokens = 1024,       # number of visual tokens. in the paper, they used 8192, but could be smaller for downsized projects
-        codebook_dim = 256,      # codebook dimension
-        hidden_dim = 64,         # hidden dimension
+        image_size = args.image_size,
+        num_layers = args.num_layers,          # number of downsamples - ex. 256 / (2 ** 3) = (32 x 32 feature map)
+        num_tokens = args.num_tokens,       # number of visual tokens. in the paper, they used 8192, but could be smaller for downsized projects
+        codebook_dim = args.codebook_dim,      # codebook dimension
+        hidden_dim = args.hidden_dim,         # hidden dimension
         num_resnet_blocks = 1,   # number of resnet blocks
         temperature = 0.9,       # gumbel softmax temperature, the lower this is, the harder the discretization
         straight_through = False # straight-through for gumbel softmax. unclear if it is better one way or the other
     )
     vae.to(device)
-    vae.load_state_dict(torch.load(args.weight))
+    vae.load_state_dict(torch.load(args.weight, map_location=device))
 
     # load dataset
-    dataset = datasets.ImageFolder(root='dataset',
+    dataset = datasets.ImageFolder(root='data/images',
                                                transform=data_transform)
     dataset_loader = torch.utils.data.DataLoader(dataset,
                                                  batch_size=4, shuffle=False,
@@ -159,7 +159,7 @@ def test(args):
 
     with torch.no_grad():
         for batch in dataset_loader:
-            batch = batch[0]
+            batch = batch[0].to(device)
             batch_pred = vae.forward(batch)
 
             batch = torchvision.utils.make_grid(batch)
