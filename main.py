@@ -97,8 +97,9 @@ def train(args):
                 torch.save(vae.state_dict(), weight_path)
                 try:
                     files = glob.glob(os.path.join(summary_dir,'*'))
-                    upload_to_drive(files+image_list,args.drive_id)
-                    image_list = []
+                    upload_to_drive(files,args.drive_id)
+                    # upload_to_drive(files+image_list,args.drive_id)
+                    # image_list = []
                 except Exception as e:
                     print('Error while uploading to drive\n',str(e))
 
@@ -119,10 +120,9 @@ def train(args):
                         npimg = img.cpu().numpy()
                         fig = plt.figure(figsize=(12,9))
                         plt.imshow(np.transpose(npimg, (1, 2, 0)))
-                        impath = os.path.join(output_image_dir,'iter-%d_img-%d.jpg'%(epoch*dataset_size+it,i))
-                        plt.savefig( impath )
-                        image_list.append(impath)
-                        # writer.add_image
+                        # impath = os.path.join(output_image_dir,'iter-%d_img-%d.jpg'%(epoch*dataset_size+it,i))
+                        # plt.savefig( impath )
+                        # image_list.append(impath)
                         writer.add_figure('generated images',
                                 fig,
                                 global_step=epoch * dataset_size + it)
