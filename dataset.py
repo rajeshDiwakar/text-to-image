@@ -99,12 +99,13 @@ class ImageDataset(Dataset):
         # text_ids = meta['text_ids'][:30]
         # if len(text_ids) < 30:
         #     text_ids += [self.pad for _ in range(30-len(text_ids))]
-        sample = (torch.from_numpy(images),[0])
+        images = torch.from_numpy(images)
+
 
         if self.transform:
-            raise NotImplementedError
-            sample = self.transform(sample)
-
+            # raise NotImplementedError
+            images = self.transform(images)
+        sample = (images,[0])
         return sample
 
 
