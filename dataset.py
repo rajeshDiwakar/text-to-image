@@ -9,10 +9,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
-
+from collections import defaultdict
 # Ignore warnings
 import warnings
 warnings.filterwarnings("ignore")
+
+import spacy
+nlp = spacy.load('en_core_web_sm')
+
 
 
 class VideoDataset(Dataset):
@@ -30,13 +34,26 @@ class VideoDataset(Dataset):
         self.transform = transform
         video_paths = glob.glob(os.path.join(root_dir,'*'))
         self.meta = []
+        self.vocab = defaultdict(int)
+        _ = self.vocab['<BOS>'] # should be 0
+        self.pad = self.vocab['<PAD>']
+
         for p in video_paths:
             vid = os.path.basename(p)
             with open(p+'/chunks.json') as f:
                 caption = json.load(f)
                 for cap in caption:
-                    self.meta.append({'vid':vid,"text":cap['context'],'frames':cap['frames']})
+                    text = cap['context']
+                    text_ids = [self.vocab[tok.text] for tok in nlp.tokenizer(text)]
+                    self.meta.append({'vid':vid,"text":text,'text_ids':text_ids,'frames':cap['frames']})
+
         print('Number of samples:',len(self.meta))
+        print('Vocab:',len(self.vocab))
+
+        if os.path.isfile('vocab.json'):
+            input('overwriting vocab.json. Please back up')
+        with open('vocab.json','w') as f:
+            json.dump(self.vocab,f)
 
 
     def __len__(self):
@@ -57,7 +74,13 @@ class VideoDataset(Dataset):
             images.append(image)
         if len(images)<5:
             images = images+[images[-1] for _ in range(5-len(images))]
-        sample = (np.array(images),meta['text'])
+
+        images = np.array(images,dtype=np.float32)
+        images = images/255.0
+        text_ids = meta['text_ids'][:30]
+        if len(text_ids) < 30:
+            text_ids += [self.pad for _ in range(30-len(text_ids))]
+        sample = (torch.from_numpy(images),torch.tensor(text_ids).long())
 
         if self.transform:
             raise NotImplementedError

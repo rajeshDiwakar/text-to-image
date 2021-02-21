@@ -91,7 +91,7 @@ def train(args):
     dalle = DALLE(
         dim = 256,#1024,
         vae = vae,                  # automatically infer (1) image sequence length and (2) number of image tokens
-        num_text_tokens = 1000, #10000,    # vocab size for text
+        num_text_tokens = len(dataset.vocab), #10000,    # vocab size for text
         text_seq_len = 256,         # text sequence length
         depth = 2,#12,                 # should aim to be 64
         heads = 16,                 # attention heads
