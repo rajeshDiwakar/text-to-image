@@ -29,7 +29,7 @@ warnings.simplefilter("ignore")
 from drive import MyDrive
 
 mdrive = MyDrive()
-upload_to_drive = mdrive=upload_to_drive
+upload_to_drive = mdrive.upload_to_drive
 # def upload_to_drive(*args,**kwargs):
 #     pass
 

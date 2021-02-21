@@ -30,7 +30,7 @@ from dataset import ImageDataset
 # def upload_to_drive(*args,**kwargs):
 #     pass
 mdrive = MyDrive()
-upload_to_drive = mdrive=upload_to_drive
+upload_to_drive = mdrive.upload_to_drive
 
 def imshow(img):
     img = img / 2 + 0.5     # unnormalize

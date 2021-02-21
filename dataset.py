@@ -139,7 +139,7 @@ class VideoDataset(Dataset):
                     text_ids = [self.vocab[tok.text] for tok in nlp.tokenizer(text)]
                     self.meta.append({'vid':vid,"text":text,'text_ids':text_ids,'frames':cap['frames']})
 
-        self.meta = self.meta[:100]
+        self.meta = self.meta
         print('Number of samples:',len(self.meta))
         print('Vocab:',len(self.vocab))
 
