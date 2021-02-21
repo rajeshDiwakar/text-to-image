@@ -122,19 +122,23 @@ class DiscreteVAE(nn.Module):
     @torch.no_grad()
     def get_codebook_indices(self, images):
         logits = self.forward(images, return_logits = True)
+        # print('logit after forward in vae',logits.shape)
         codebook_indices = logits.argmax(dim = 1).flatten(1)
         return codebook_indices
 
     def decode(
         self,
-        img_seq
+        img_seq,video_seq_len = 1
     ):
         image_embeds = self.codebook(img_seq)
         b, n, d = image_embeds.shape
+        n=n/video_seq_len
         h = w = int(sqrt(n))
 
-        image_embeds = rearrange(image_embeds, 'b (h w) d -> b d h w', h = h, w = w)
+        # image_embeds = rearrange(image_embeds, 'b (h w) d -> b d h w', h = h, w = w)
+        image_embeds = rearrange(image_embeds, 'b (time h w) d -> (b time) d h w', h = h, w = w,time=video_seq_len) #rajesh check
         images = self.decoder(image_embeds)
+        images = rearrange(images,'(b time) c h w -> b time c h w',time=video_seq_len) # check
         return images
 
     def forward(
@@ -248,6 +252,7 @@ class DALLE(nn.Module):
         vae,
         num_text_tokens = 10000,
         text_seq_len = 256,
+        video_seq_len = 10,
         depth,
         heads = 8,
         dim_head = 64,
@@ -276,8 +281,9 @@ class DALLE(nn.Module):
 
         self.text_seq_len = text_seq_len
         self.image_seq_len = image_seq_len
+        self.video_seq_len = video_seq_len
 
-        seq_len = text_seq_len + image_seq_len
+        seq_len = text_seq_len + image_seq_len*self.video_seq_len
         total_tokens = num_text_tokens + num_image_tokens
         self.total_tokens = total_tokens
         self.total_seq_len = seq_len
@@ -336,7 +342,7 @@ class DALLE(nn.Module):
         temperature = 1.
     ):
         vae, text_seq_len, image_seq_len, num_text_tokens = self.vae, self.text_seq_len, self.image_seq_len, self.num_text_tokens
-        total_len = text_seq_len + image_seq_len
+        total_len = text_seq_len + image_seq_len*self.video_seq_len
 
         out = text
 
@@ -351,7 +357,7 @@ class DALLE(nn.Module):
             probs = F.softmax(filtered_logits / temperature, dim = -1)
             sample = torch.multinomial(probs, 1)
 
-            sample -= (num_text_tokens if is_image else 0) # offset sampled token if it is an image token, since logit space is composed of text and then image tokens
+            sample = torch.clamp(sample-num_text_tokens,min=0) if is_image else sample # offset sampled token if it is an image token, since logit space is composed of text and then image tokens
             out = torch.cat((out, sample), dim=-1)
 
             if out.shape[1] <= text_seq_len:
@@ -359,9 +365,12 @@ class DALLE(nn.Module):
 
         text_seq = out[:, :text_seq_len]
 
-        img_seq = out[:, -image_seq_len:]
-        images = vae.decode(img_seq)
-
+        img_seq = out[:, -image_seq_len*self.video_seq_len:]
+        images = vae.decode(img_seq,video_seq_len=self.video_seq_len)
+        # print('img_seq shape: ',img_seq.shape)
+        # print(str(img_seq)[:100])
+        # print('images shape: ',images.shape)
+        # print(str(images)[:100])
         if exists(clip):
             scores = clip(text_seq, images, return_loss = False)
             return images, scores
@@ -388,11 +397,29 @@ class DALLE(nn.Module):
         seq_len = tokens.shape[1]
 
         if exists(image) and not is_empty(image):
-            is_raw_image = len(image.shape) == 4
+            # is_raw_image = len(image.shape) == 4
+            # if is_raw_image:
+            #     image = self.vae.get_codebook_indices(image)
+
+            is_raw_image = False
+            if len(image.shape) == 4:
+                is_raw_image = True
+                b,c,h,w = image.shape # rajesh check: hwc or chw
+                t=1
+            elif len(image.shape) == 5:
+                is_raw_image = True
+                b,t,c,h,w=image.shape
+
             if is_raw_image:
+                image = rearrange(image,'b t c h w -> (b t) c h w',t=t) # input to vae is chw
                 image = self.vae.get_codebook_indices(image)
+                # print('image shape after codebook:',image.shape)
+                # print(str(image)[:100])
+                image = rearrange(image,'(b t) n -> b (t n)',t=t) # rajesh check
 
             image_len = image.shape[1]
+            # print('emb image shape:',image.shape)
+            # print(str(image)[:100])
             image_emb = self.image_emb(image)
             image_emb += self.image_pos_emb(image_emb)
 
@@ -419,6 +446,7 @@ class DALLE(nn.Module):
         max_neg_value = -torch.finfo(logits.dtype).max
         logits.masked_fill_(logits_mask, max_neg_value)
 
+        logits = logits[:,:-1,:] # rajesh check
         if not return_loss:
             return logits
 
@@ -432,6 +460,6 @@ class DALLE(nn.Module):
             noncausal_attn_mask = seq_range < noncausal_attn_len
             noncausal_attn_mask = rearrange(noncausal_attn_mask, 'n -> () n')
             labels.masked_fill_(noncausal_attn_mask, ignore_index)
-
+        # print(logits.shape,labels.shape)
         loss = F.cross_entropy(rearrange(logits, 'b n c -> b c n'), labels)
         return loss

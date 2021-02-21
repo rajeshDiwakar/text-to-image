@@ -1,3 +1,9 @@
+'''
+python main_vae.py --train --session test3 --epochs 10 --save_every 10 --test_every 5 --data data/images --drive_id $drive_parent_id --batch_size 256
+python main_vae.py --train --session test3 --epochs 10 --save_every 10 --test_every 5 --data data/images --drive_id $drive_parent_id --batch_size 16
+python main_vae.py --train --session test3 --epochs 10 --save_every 10 --test_every 5 --data /home/rajesh/work/limbo/text-to-image/dataset  --batch_size 16
+'''
+
 
 import os,sys,time, glob
 import torch, torchvision
@@ -18,7 +24,13 @@ from torch.utils.tensorboard import SummaryWriter
 import warnings
 warnings.simplefilter("ignore")
 
-from drive import upload_to_drive
+from drive import MyDrive
+from dataset import ImageDataset
+
+# def upload_to_drive(*args,**kwargs):
+#     pass
+mdrive = MyDrive()
+upload_to_drive = mdrive=upload_to_drive
 
 def imshow(img):
     img = img / 2 + 0.5     # unnormalize
@@ -27,6 +39,7 @@ def imshow(img):
     plt.show()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 data_transform = transforms.Compose([
         transforms.Scale((64,64)),
@@ -40,13 +53,14 @@ data_transform = transforms.Compose([
 def train(args):
 
     batch_size = args.batch_size
-    dataset = datasets.ImageFolder(root=args.data,
-                                               transform=data_transform)
+    # dataset = datasets.ImageFolder(root=args.data,
+    #                                            transform=data_transform)
+    dataset = ImageDataset(args.data,transform=None)
     dataset_loader = torch.utils.data.DataLoader(dataset,
-                                                 batch_size=128, shuffle=True,
+                                                 batch_size=batch_size, shuffle=True,
                                                  num_workers=4)
     dataset_loader_test = torch.utils.data.DataLoader(dataset,
-                                                 batch_size=32, shuffle=True,
+                                                 batch_size=min(batch_size,32), shuffle=True,
                                                  num_workers=1)
 
     assert len(dataset_loader)>0, 'no image found in data dir'
@@ -55,7 +69,7 @@ def train(args):
     output_image_dir = os.path.join(sess_dir,'output')
     os.makedirs(sess_dir,exist_ok=True)
     os.makedirs(output_image_dir,exist_ok=True)
-    weight_path = os.path.join(sess_dir,args.weight)
+    weight_vae = os.path.join(sess_dir,args.weight_vae)
 
     summary_dir = os.path.join(sess_dir,'summary')
     writer = SummaryWriter(summary_dir)
@@ -94,7 +108,7 @@ def train(args):
             running_loss += loss.item()
             writer.add_scalar('training loss',running_loss / (it+1),epoch * dataset_size+ it)
             if it%args.save_every==(args.save_every-1):
-                torch.save(vae.state_dict(), weight_path)
+                torch.save(vae.state_dict(), weight_vae)
                 try:
                     files = glob.glob(os.path.join(summary_dir,'*'))
                     upload_to_drive(files,args.drive_id)
@@ -148,11 +162,15 @@ def test(args):
         straight_through = False # straight-through for gumbel softmax. unclear if it is better one way or the other
     )
     vae.to(device)
-    vae.load_state_dict(torch.load(args.weight, map_location=device))
+    sess_dir = os.path.join('sessions',args.session)
+    weight_vae = os.path.join(sess_dir,args.weight_vae)
+
+    vae.load_state_dict(torch.load(weight_vae, map_location=device))
 
     # load dataset
-    dataset = datasets.ImageFolder(root='data/images',
-                                               transform=data_transform)
+    # dataset = datasets.ImageFolder(root='data/images',
+    #                                            transform=data_transform)
+    dataset = ImageDataset(args.data,transform=None)
     dataset_loader = torch.utils.data.DataLoader(dataset,
                                                  batch_size=4, shuffle=False,
                                                  num_workers=1)
@@ -188,13 +206,13 @@ if __name__ =='__main__':
     parser.add_argument('--drive_id',default='15KEW4Oqi_5xuaVI97YMuLVhXnpmgrE3A')
 
     parser.add_argument('--image_size',type=int,default=64)
-    parser.add_argument('--num_layers',type=int,default=1)
+    parser.add_argument('--num_layers',type=int,default=5)
     parser.add_argument('--num_tokens',type=int,default=1024)
     parser.add_argument('--codebook_dim',type=int,default=256)
     parser.add_argument('--hidden_dim',type=int,default=64)
 
     parser.add_argument('--test',action='store_true',default=False,help='for testing use --test')  #not really required
-    parser.add_argument('--weight',default='weights.pth')
+    parser.add_argument('--weight_vae',default='vae.pth')
 
     args = parser.parse_args()
     if not args.test and not args.train:

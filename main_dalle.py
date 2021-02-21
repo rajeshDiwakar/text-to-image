@@ -1,5 +1,6 @@
 '''
 python main_dalle.py --train --data '/home/rajesh/work/limbo/text-to-image/dataset' --weight sessions/test2/weights.pth
+timelimit -t 600 -T 600 python main_dalle.py --train --data '/home/rajesh/work/limbo/text-to-image/dataset' --sess test3 --test_every 4 --epochs 2 --save_every 4 --batch_size 32
 '''
 
 
@@ -11,6 +12,7 @@ from torchvision import transforms, datasets
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from einops import rearrange
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -24,7 +26,12 @@ import warnings
 from dataset import VideoDataset
 warnings.simplefilter("ignore")
 
-from drive import upload_to_drive
+from drive import MyDrive
+
+mdrive = MyDrive()
+upload_to_drive = mdrive=upload_to_drive
+# def upload_to_drive(*args,**kwargs):
+#     pass
 
 def imshow(img):
     img = img / 2 + 0.5     # unnormalize
@@ -50,10 +57,10 @@ def train(args):
     #                                            transform=data_transform)
     dataset = VideoDataset(args.data)
     dataset_loader = torch.utils.data.DataLoader(dataset,
-                                                 batch_size=32, shuffle=True,
-                                                 num_workers=1)
+                                                 batch_size=batch_size, shuffle=True,
+                                                 num_workers=2)
     dataset_loader_test = torch.utils.data.DataLoader(dataset,
-                                                 batch_size=32, shuffle=True,
+                                                 batch_size=min(batch_size,32), shuffle=True,
                                                  num_workers=1)
 
     assert len(dataset_loader)>0, 'no image found in data dir'
@@ -62,7 +69,8 @@ def train(args):
     output_image_dir = os.path.join(sess_dir,'output')
     os.makedirs(sess_dir,exist_ok=True)
     os.makedirs(output_image_dir,exist_ok=True)
-    weight_path = os.path.join(sess_dir,args.weight)
+    weight_vae = os.path.join(sess_dir,args.weight_vae)
+    weight_dalle = os.path.join(sess_dir,args.weight_dalle)
 
     summary_dir = os.path.join(sess_dir,'summary')
     writer = SummaryWriter(summary_dir)
@@ -77,7 +85,7 @@ def train(args):
         straight_through = False # straight-through for gumbel softmax. unclear if it is better one way or the other
     )
     vae.to(device)
-    vae.load_state_dict(torch.load(args.weight, map_location=device))
+    vae.load_state_dict(torch.load(weight_vae, map_location=device))
     # vae = DiscreteVAE(
     # image_size = 256,
     # num_layers = 3,
@@ -93,6 +101,7 @@ def train(args):
         vae = vae,                  # automatically infer (1) image sequence length and (2) number of image tokens
         num_text_tokens = len(dataset.vocab), #10000,    # vocab size for text
         text_seq_len = 256,         # text sequence length
+        video_seq_len=5,
         depth = 2,#12,                 # should aim to be 64
         heads = 16,                 # attention heads
         dim_head = 64,              # attention head dimension
@@ -130,7 +139,7 @@ def train(args):
             running_loss += loss.item()
             writer.add_scalar('training loss',running_loss / (it+1),epoch * dataset_size+ it)
             if it%args.save_every==(args.save_every-1):
-                torch.save(vae.state_dict(), weight_path)
+                torch.save(vae.state_dict(), weight_dalle)
                 try:
                     if args.drive_id:
                         files = glob.glob(os.path.join(summary_dir,'*'))
@@ -145,20 +154,26 @@ def train(args):
 
                 with torch.no_grad():
                     for i, batch in enumerate(dataset_loader_test):
-                        # images = batch[0].to(device)
+                        images = batch[0].to(device)
                         text = batch[1].to(device)
+                        mask = torch.ones_like(text).bool()
                         # images_pred = vae.forward(images)
-                        images_pred = dalle.forward(text)
+                        # images_pred = dalle.forward(text)
+                        images_pred = dalle.generate_images(text, mask = mask)
+                        b,t,c,h,w = images.shape
 
-                        images = torchvision.utils.make_grid(images)
-                        images_pred = torchvision.utils.make_grid(images_pred)
+                        images = rearrange(images,'b t c h w -> t b c h w')
+                        images_pred = rearrange(images_pred,'b t c h w -> t b c h w')
+                        images = torch.stack([torchvision.utils.make_grid(torch.squeeze(images[ti])) for ti in range(t)])
+                        images_pred = torch.stack([torchvision.utils.make_grid(torch.squeeze(images_pred[ti])) for ti in range(t) ])
 
-                        images = torch.cat((imags,images_pred),-1)
-                        img = images
-                        img = img / 2 + 0.5     # unnormalize
+                        images = torch.cat((images,images_pred),-1)
+                        img = torch.unsqueeze(images,0)
+                        img = torch.clamp((img + 1)*128,min=0,max=255)     # unnormalize
                         npimg = img.cpu().numpy()
-                        fig = plt.figure(figsize=(12,9))
-                        plt.imshow(np.transpose(npimg, (1, 2, 0)))
+                        npimg = npimg.astype(np.uint8)
+                        # fig = plt.figure(figsize=(12,9))
+                        # plt.imshow(np.transpose(npimg, (1, 2, 0)))
 
                         # impath = os.path.join(output_image_dir,'iter-%d_img-%d.jpg'%(epoch*dataset_size+it,i))
                         # plt.savefig( impath )
@@ -168,7 +183,7 @@ def train(args):
                         #         fig,
                         #         global_step=epoch * dataset_size + it)
                         writer.add_video('generated images',
-                                fig,
+                                npimg,
                                 global_step=epoch * dataset_size + it)
 
                         if i>= 0:
@@ -233,13 +248,14 @@ if __name__ =='__main__':
     parser.add_argument('--drive_id',default=None)
 
     parser.add_argument('--image_size',type=int,default=64)
-    parser.add_argument('--num_layers',type=int,default=1)
+    parser.add_argument('--num_layers',type=int,default=5)
     parser.add_argument('--num_tokens',type=int,default=1024)
     parser.add_argument('--codebook_dim',type=int,default=256)
     parser.add_argument('--hidden_dim',type=int,default=64)
 
     parser.add_argument('--test',action='store_true',default=False,help='for testing use --test')  #not really required
-    parser.add_argument('--weight',default='weights.pth')
+    parser.add_argument('--weight_vae',default='vae.pth')
+    parser.add_argument('--weight_dalle',default='dalle.pth')
 
     args = parser.parse_args()
     if not args.test and not args.train:
