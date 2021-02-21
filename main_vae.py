@@ -41,13 +41,17 @@ def imshow(img):
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
+# data_transform = transforms.Compose([
+#         transforms.Scale((64,64)),
+#         # transforms.RandomSizedCrop(256),
+#         transforms.RandomHorizontalFlip(),
+#         transforms.ToTensor(),
+#         transforms.Normalize(mean=[.5, 0.5, 0.5],
+#                              std=[0.5, 0.5, 0.5])
+#     ])
+
 data_transform = transforms.Compose([
-        transforms.Scale((64,64)),
-        # transforms.RandomSizedCrop(256),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[.5, 0.5, 0.5],
-                             std=[0.5, 0.5, 0.5])
+        transforms.RandomHorizontalFlip()
     ])
 
 def train(args):
@@ -55,7 +59,7 @@ def train(args):
     batch_size = args.batch_size
     # dataset = datasets.ImageFolder(root=args.data,
     #                                            transform=data_transform)
-    dataset = ImageDataset(args.data,transform=None)
+    dataset = ImageDataset(args.data,transform=data_transform)
     dataset_loader = torch.utils.data.DataLoader(dataset,
                                                  batch_size=batch_size, shuffle=True,
                                                  num_workers=4)
@@ -204,7 +208,7 @@ if __name__ =='__main__':
     parser.add_argument('--epochs',default=1000,type=int)
     parser.add_argument('--save_every',default=100,type=int)
     parser.add_argument('--test_every',default=100,type=int)
-    parser.add_argument('--resume',default=0,type=int)
+    # parser.add_argument('--resume',default=0,type=int)
     parser.add_argument('--data',default='data',help='data dir. data/classes/img.jpg')
     parser.add_argument('--batch_size',default=128,type=int)
     parser.add_argument('--drive_id',default='15KEW4Oqi_5xuaVI97YMuLVhXnpmgrE3A')
