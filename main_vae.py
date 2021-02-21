@@ -84,6 +84,10 @@ def train(args):
         straight_through = False # straight-through for gumbel softmax. unclear if it is better one way or the other
     )
     vae.to(device)
+    init_epoch = 0
+    if args.resume:
+        vae.load_state_dict(torch.load(weight_vae, map_location=device))
+        init_epoch = args.resume_epoch
     # criterion = nn.CrossEntropyLoss()
     # optimizer = optim.SGD(vae.parameters(), lr=0.001, momentum=0.9)
     # dataset_size = len(dataset_loader)
@@ -93,7 +97,7 @@ def train(args):
     optimizer = optim.Adam(vae.parameters(), lr=0.0001)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10*dataset_size,20*dataset_size], gamma=0.1)
     image_list = []
-    for epoch in range(args.epochs):
+    for epoch in range(init_epoch,init_epoch+args.epochs):
         running_loss = 0.0
 
         for it,batch in enumerate(dataset_loader):
@@ -213,6 +217,8 @@ if __name__ =='__main__':
 
     parser.add_argument('--test',action='store_true',default=False,help='for testing use --test')  #not really required
     parser.add_argument('--weight_vae',default='vae.pth')
+    parser.add_argument('--resume',default=False,action='store_true')
+    parser.add_argument('--resume_epoch',default=0,type=int)
 
     args = parser.parse_args()
     if not args.test and not args.train:
