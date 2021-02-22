@@ -111,7 +111,7 @@ def train(args):
             it = epoch*dataset_size + it
             images = batch[0].to(device)
             optimizer.zero_grad()
-            loss = vae(images, return_recon_loss = True)
+            loss = vae(images, return_loss = True)
             loss.backward()
             optimizer.step()
             sys.stdout.write('\r[%s] %6d/%6d: loss: %f'%(time.asctime(),it,args.epochs*dataset_size,loss.item()))
