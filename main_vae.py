@@ -5,7 +5,7 @@ python main_vae.py --train --session test3 --epochs 10 --save_every 10 --test_ev
 '''
 
 
-import os,sys,time, glob
+import os,sys,time, glob,json
 import torch, torchvision
 from dalle_pytorch import DiscreteVAE
 
@@ -70,12 +70,12 @@ def train(args):
     assert len(dataset_loader)>0, 'no image found in data dir'
 
     sess_dir = os.path.join('sessions',args.session)
-    output_image_dir = os.path.join(sess_dir,'output')
+    # output_image_dir = os.path.join(sess_dir,'output')
     os.makedirs(sess_dir,exist_ok=True)
-    os.makedirs(output_image_dir,exist_ok=True)
+    # os.makedirs(output_image_dir,exist_ok=True)
     weight_vae = os.path.join(sess_dir,args.weight_vae)
 
-    summary_dir = os.path.join(sess_dir,'summary')
+    summary_dir = os.path.join(sess_dir,'summary/vae')
     writer = SummaryWriter(summary_dir)
     vae = DiscreteVAE(
         image_size = args.image_size,
@@ -90,6 +90,8 @@ def train(args):
         kl_div_loss_weight=args.kl_div_loss_weight
     )
     vae.to(device)
+    with open(weight_vae+'_config.json','w') as j:
+        json.dump(vae.config,j)
     init_epoch = 0
     if args.resume:
         vae.load_state_dict(torch.load(weight_vae, map_location=device))

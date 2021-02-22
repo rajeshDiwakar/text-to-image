@@ -3,10 +3,11 @@ python main_dalle.py --train --data '/home/rajesh/work/limbo/text-to-image/datas
 timelimit -t 600 -T 600 python main_dalle.py --train --data '/home/rajesh/work/limbo/text-to-image/dataset' --sess test3 --test_every 4 --epochs 2 --save_every 4 --batch_size 32
 
 timelimit -t 600 -T 600 python main_dalle.py --train --data '/home/rajesh/work/limbo/text-to-image/dataset' --sess test11_l1 --test_every 1 --epochs 2 --save_every 2 --batch_size 8 --codebook_dim 512 --num_tokens 2048 --num_layers 3
+timelimit -t 600 -T 600 python main_dalle.py --train --data '/home/rajesh/work/limbo/text-to-image/dataset' --sess test1 --test_every 1 --epochs 2 --save_every 2 --batch_size 8
 '''
 
 
-import os,sys,time, glob
+import os,sys,time, glob,json
 import torch, torchvision
 from dalle_pytorch import DiscreteVAE, DALLE
 
@@ -68,43 +69,28 @@ def train(args):
     assert len(dataset_loader)>0, 'no image found in data dir'
 
     sess_dir = os.path.join('sessions',args.session)
-    output_image_dir = os.path.join(sess_dir,'output')
+    # output_image_dir = os.path.join(sess_dir,'output')
     os.makedirs(sess_dir,exist_ok=True)
-    os.makedirs(output_image_dir,exist_ok=True)
+    # os.makedirs(output_image_dir,exist_ok=True)
     weight_vae = os.path.join(sess_dir,args.weight_vae)
     weight_dalle = os.path.join(sess_dir,args.weight_dalle)
 
-    summary_dir = os.path.join(sess_dir,'summary')
+    summary_dir = os.path.join(sess_dir,'summary/dalle')
     writer = SummaryWriter(summary_dir)
-    vae = DiscreteVAE(
-        image_size = args.image_size,
-        num_layers = args.num_layers,          # number of downsamples - ex. 256 / (2 ** 3) = (32 x 32 feature map)
-        num_tokens = args.num_tokens,       # number of visual tokens. in the paper, they used 8192, but could be smaller for downsized projects
-        codebook_dim = args.codebook_dim,      # codebook dimension
-        hidden_dim = args.hidden_dim,         # hidden dimension
-        num_resnet_blocks = 1,   # number of resnet blocks
-        temperature = 0.9,       # gumbel softmax temperature, the lower this is, the harder the discretization
-        straight_through = False # straight-through for gumbel softmax. unclear if it is better one way or the other
-    )
+    with open(weight_vae+'_config.json') as j:
+        vae_config = json.load(j)
+    vae = DiscreteVAE( **vae_config )
     vae.to(device)
     vae.load_state_dict(torch.load(weight_vae, map_location=device))
-    # vae = DiscreteVAE(
-    # image_size = 256,
-    # num_layers = 3,
-    # num_tokens = 8192,
-    # codebook_dim = 1024,
-    # hidden_dim = 64,
-    # num_resnet_blocks = 1,
-    # temperature = 0.9
-    # )
+
 
     dalle = DALLE(
-        dim = 512,#1024,256
+        dim = args.dim,#1024,256
         vae = vae,                  # automatically infer (1) image sequence length and (2) number of image tokens
         num_text_tokens = len(dataset.vocab), #10000,    # vocab size for text
-        text_seq_len = 256,         # text sequence length
-        video_seq_len=5,
-        depth = 2,#12,                 # should aim to be 64
+        text_seq_len = args.text_seq_len,         # text sequence length
+        video_seq_len = args.video_seq_len,
+        depth = args.depth,#12,                 # should aim to be 64
         heads = 16,                 # attention heads
         dim_head = 64,              # attention head dimension
         attn_dropout = 0.1,         # attention dropout
@@ -259,11 +245,11 @@ if __name__ =='__main__':
     # parser.add_argument('--drive_id',default='15KEW4Oqi_5xuaVI97YMuLVhXnpmgrE3A')
     parser.add_argument('--drive_id',default=None)
 
-    parser.add_argument('--image_size',type=int,default=64)
-    parser.add_argument('--num_layers',type=int,default=5)
-    parser.add_argument('--num_tokens',type=int,default=1024)
-    parser.add_argument('--codebook_dim',type=int,default=256)
-    parser.add_argument('--hidden_dim',type=int,default=64)
+    parser.add_argument('--dim',type=int,default=512)
+    parser.add_argument('--text_seq_len',type=int,default=30)
+    parser.add_argument('--video_seq_len',type=int,default=5)
+    parser.add_argument('--depth',type=int,default=2)
+    # parser.add_argument('--hidden_dim',type=int,default=64)
 
     parser.add_argument('--test',action='store_true',default=False,help='for testing use --test')  #not really required
     parser.add_argument('--weight_vae',default='vae.pth')

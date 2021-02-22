@@ -81,6 +81,18 @@ class DiscreteVAE(nn.Module):
         super().__init__()
         assert log2(image_size).is_integer(), 'image size must be a power of 2'
         assert num_layers >= 1, 'number of layers must be greater than or equal to 1'
+        self.config = {'image_size':image_size,
+        'num_tokens':num_tokens,
+        'codebook_dim':codebook_dim,
+        'num_layers':num_layers,
+        'num_resnet_blocks':num_resnet_blocks,
+        'hidden_dim':hidden_dim,
+        'channels':channels,
+        'smooth_l1_loss':smooth_l1_loss,
+        'temperature':temperature,
+        'straight_through':straight_through,
+        'kl_div_loss_weight':kl_div_loss_weight}
+
         has_resblocks = num_resnet_blocks > 0
 
         self.image_size = image_size
@@ -124,6 +136,8 @@ class DiscreteVAE(nn.Module):
 
         self.loss_fn = F.smooth_l1_loss if smooth_l1_loss else F.mse_loss
         self.kl_div_loss_weight = kl_div_loss_weight
+
+
 
     @torch.no_grad()
     @eval_decorator
@@ -194,6 +208,7 @@ class DiscreteVAE(nn.Module):
             return loss
 
         return loss, out
+
 
 class VQVAE(nn.Module):
     def __init__(
