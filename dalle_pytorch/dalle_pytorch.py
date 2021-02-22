@@ -72,8 +72,10 @@ class DiscreteVAE(nn.Module):
         num_resnet_blocks = 0,
         hidden_dim = 64,
         channels = 3,
+        smooth_l1_loss = False,
         temperature = 0.9,
-        straight_through = False
+        straight_through = False,
+        kl_div_loss_weight = 0.
     ):
         super().__init__()
         assert log2(image_size).is_integer(), 'image size must be a power of 2'
@@ -119,7 +121,11 @@ class DiscreteVAE(nn.Module):
         self.encoder = nn.Sequential(*enc_layers)
         self.decoder = nn.Sequential(*dec_layers)
 
+        self.loss_fn = F.smooth_l1_loss if smooth_l1_loss else F.mse_loss
+        self.kl_div_loss_weight = kl_div_loss_weight
+
     @torch.no_grad()
+    @eval_decorator
     def get_codebook_indices(self, images):
         logits = self.forward(images, return_logits = True)
         # print('logit after forward in vae',logits.shape)
@@ -144,9 +150,14 @@ class DiscreteVAE(nn.Module):
     def forward(
         self,
         img,
-        return_recon_loss = False,
-        return_logits = False
+        return_loss = False,
+        return_recons = False,
+        return_logits = False,
+        temp=None
     ):
+        device, num_tokens, image_size, kl_div_loss_weight = img.device, self.num_tokens, self.image_size, self.kl_div_loss_weight
+        assert img.shape[-1] == image_size and img.shape[-2] == image_size, f'input must have the correct image size {image_size}'
+
         logits = self.encoder(img)
 
         if return_logits:
@@ -156,11 +167,28 @@ class DiscreteVAE(nn.Module):
         sampled = einsum('b n h w, n d -> b d h w', soft_one_hot, self.codebook.weight)
         out = self.decoder(sampled)
 
-        if not return_recon_loss:
+        if not return_loss:
             return out
 
-        loss = F.mse_loss(img, out)
-        return loss
+        # reconstruction loss
+
+        recon_loss = self.loss_fn(img, out)
+
+        # kl divergence
+
+        logits = rearrange(logits, 'b n h w -> b (h w) n')
+        qy = F.softmax(logits, dim = -1)
+
+        log_qy = torch.log(qy + 1e-10)
+        log_uniform = torch.log(torch.tensor([1. / num_tokens], device = device))
+        kl_div = F.kl_div(log_uniform, log_qy, None, None, 'batchmean', log_target = True)
+
+        loss = recon_loss + (kl_div * kl_div_loss_weight)
+
+        if not return_recons:
+            return loss
+
+        return loss, out
 
 # main classes
 
