@@ -24,7 +24,7 @@ def max_neg_value(t):
 # classes
 
 class Attention(nn.Module):
-    def __init__(self, dim, seq_len, causal = True, heads = 8, dim_head = 64, dropout = 0., noncausal_attn_len = 0):
+    def __init__(self, dim, seq_len, causal = True, heads = 8, dim_head = 64, dropout = 0.):
         super().__init__()
         inner_dim = dim_head *  heads
         self.heads = heads
@@ -32,7 +32,6 @@ class Attention(nn.Module):
         self.scale = dim_head ** -0.5
 
         self.causal = causal
-        self.noncausal_attn_len = noncausal_attn_len
 
         self.to_qkv = nn.Linear(dim, inner_dim * 3, bias = False)
         self.to_out = nn.Sequential(
@@ -49,18 +48,13 @@ class Attention(nn.Module):
         mask_value = max_neg_value(dots)
 
         if exists(mask):
-            mask = rearrange(mask, 'b i -> b () i ()') * rearrange(mask, 'b j -> b () () j')
+            mask = rearrange(mask, 'b j -> b () () j')
             dots.masked_fill_(~mask, mask_value)
             del mask
 
         if self.causal:
             i, j = dots.shape[-2:]
             mask = torch.ones(i, j, device = device).triu_(j - i + 1).bool()
-
-            if self.noncausal_attn_len > 1:
-                ind = slice(0, self.noncausal_attn_len)
-                mask[ind, ind] = False
-
             dots.masked_fill_(mask, mask_value)
 
         attn = dots.softmax(dim=-1)
@@ -78,6 +72,7 @@ class SparseConvCausalAttention(nn.Module):
         assert kernel_size % 2 == 1, 'kernel size must be odd'
 
         inner_dim = dim_head *  heads
+        self.seq_len = seq_len
         self.heads = heads
         self.scale = dim_head ** -0.5
         self.image_size = image_size
@@ -92,14 +87,26 @@ class SparseConvCausalAttention(nn.Module):
         )
 
     def forward(self, x, mask = None):
-        b, n, _, h, img_size, kernel_size, dilation, device = *x.shape, self.heads, self.image_size, self.kernel_size, self.dilation, x.device
+        b, n, _, h, img_size, kernel_size, dilation, seq_len, device = *x.shape, self.heads, self.image_size, self.kernel_size, self.dilation, self.seq_len, x.device
+
+        img_seq_len = img_size ** 2
+        text_len = seq_len + 1 - img_seq_len
+
+        # padding
+
+        padding = seq_len - n + 1
+        mask = default(mask, lambda: torch.ones(b, text_len, device = device).bool())
+
+        x = F.pad(x, (0, 0, 0, padding), value = 0)
+        mask = mask[:, :text_len]
+
+        # derive query / keys / values
+
         qkv = self.to_qkv(x).chunk(3, dim = -1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h = h), qkv)
 
         q *= self.scale
 
-        img_seq_len = img_size ** 2
-        text_len = n - img_seq_len
         ((q_text, q_img), (k_text, k_img), (v_text, v_img)) = map(lambda t: (t[:, img_seq_len:], t[:, -img_seq_len:]), (q, k, v))
 
         # text attention
@@ -108,8 +115,8 @@ class SparseConvCausalAttention(nn.Module):
         mask_value = max_neg_value(dots_text)
 
         i, j = dots_text.shape[-2:]
-        mask = torch.ones(i, j, device = device).triu_(j - i + 1).bool()
-        dots_text.masked_fill(mask, mask_value)
+        text_causal_mask = torch.ones(i, j, device = device).triu_(j - i + 1).bool()
+        dots_text.masked_fill(text_causal_mask, mask_value)
 
         attn_text = dots_text.softmax(dim = -1)
         out_text = einsum('b i j, b j d -> b i d', attn_text, v_text)
@@ -144,12 +151,17 @@ class SparseConvCausalAttention(nn.Module):
         # mask image attention
 
         q_img_indices = rearrange(img_seq, 'i -> () i ()')
-        mask =  q_img_indices >= k_img_indices
+        causal_mask =  q_img_indices >= k_img_indices
+
+        # concat text mask with image causal mask
+
+        causal_mask = repeat(causal_mask, '() i j -> b i j', b = b * h)
+        mask = repeat(mask, 'b j -> (b h) i j', i = i, h = h)
+        mask = torch.cat((~mask, causal_mask), dim = -1)
 
         # image can attend to all of text
 
-        mask = F.pad(mask, (text_len, 0), value = True)
-        dots_image.masked_fill_(~mask, mask_value)
+        dots_image.masked_fill_(mask, mask_value)
 
         attn_image = dots_image.softmax(dim = -1)
         out_image = einsum('b i j, b i j d -> b i d', attn_image, v_img)
@@ -160,7 +172,7 @@ class SparseConvCausalAttention(nn.Module):
 
         out = rearrange(out, '(b h) n d -> b n (h d)', h = h)
         out =  self.to_out(out)
-        return out
+        return out[:, :n]
 
 # sparse axial causal attention
 
@@ -171,6 +183,7 @@ class SparseAxialCausalAttention(nn.Module):
         self.axis = axis
 
         inner_dim = dim_head *  heads
+        self.seq_len = seq_len
         self.heads = heads
         self.scale = dim_head ** -0.5
         self.image_size = image_size
@@ -183,14 +196,26 @@ class SparseAxialCausalAttention(nn.Module):
         )
 
     def forward(self, x, mask = None):
-        b, n, _, h, img_size, axis, device = *x.shape, self.heads, self.image_size, self.axis, x.device
+        b, n, _, h, img_size, axis, seq_len, device = *x.shape, self.heads, self.image_size, self.axis, self.seq_len, x.device
+
+        img_seq_len = img_size ** 2
+        text_len = seq_len + 1 - img_seq_len
+
+        # padding
+
+        padding = seq_len - n + 1
+        mask = default(mask, lambda: torch.ones(b, text_len, device = device).bool())
+
+        x = F.pad(x, (0, 0, 0, padding), value = 0)
+        mask = mask[:, :text_len]
+
+        # derive queries / keys / values
+
         qkv = self.to_qkv(x).chunk(3, dim = -1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h = h), qkv)
 
         q *= self.scale
 
-        img_seq_len = img_size ** 2
-        text_len = n - img_seq_len
         ((q_text, q_img), (k_text, k_img), (v_text, v_img)) = map(lambda t: (t[:, img_seq_len:], t[:, -img_seq_len:]), (q, k, v))
 
         # text attention
@@ -199,8 +224,8 @@ class SparseAxialCausalAttention(nn.Module):
         mask_value = max_neg_value(dots_text)
 
         i, j = dots_text.shape[-2:]
-        mask = torch.ones(i, j, device = device).triu_(j - i + 1).bool()
-        dots_text.masked_fill(mask, mask_value)
+        text_causal_mask = torch.ones(i, j, device = device).triu_(j - i + 1).bool()
+        dots_text.masked_fill(text_causal_mask, mask_value)
 
         attn_text = dots_text.softmax(dim = -1)
         out_text = einsum('b i j, b j d -> b i d', attn_text, v_text)
@@ -226,13 +251,21 @@ class SparseAxialCausalAttention(nn.Module):
 
         # mask so image has full attention to text, but causal along axis
 
-        i, j = dots_image.shape[-2:]
-        mask = torch.ones(i, j, device = device).triu_(j - i + 1).bool()
+        bh, i, j = dots_image.shape
+        causal_mask = torch.ones(i, img_size, device = device).triu_(img_size - i + 1).bool()
+        causal_mask = repeat(causal_mask, 'i j -> b i j', b = bh)
+
+        mask = repeat(mask, 'b j -> (b r) i j', r = (bh // b), i = i)
+        mask = torch.cat((~mask, causal_mask), dim = -1)
+
         dots_image.masked_fill_(mask, mask_value)
 
         # attention.
 
         attn_image = dots_image.softmax(dim = -1)
+
+        # aggregate
+
         out_image = einsum('b i j, b j d -> b i d', attn_image, v_img)
 
         # merge back axis
@@ -245,7 +278,7 @@ class SparseAxialCausalAttention(nn.Module):
 
         out = rearrange(out, '(b h) n d -> b n (h d)', h = h)
         out =  self.to_out(out)
-        return out
+        return out[:, :n]
 
 # microsoft sparse attention CUDA kernel
 
@@ -255,7 +288,6 @@ class SparseAttention(Attention):
         *args,
         block_size = 16,
         num_random_blocks = None,
-        sparse_attn_global_indices = [],
         **kwargs
     ):
         super().__init__(*args, **kwargs)
@@ -263,14 +295,12 @@ class SparseAttention(Attention):
         self.block_size = block_size
 
         num_random_blocks = default(num_random_blocks, self.seq_len // block_size // 4)
-        global_blocks = uniq(map(lambda t: t // block_size, sparse_attn_global_indices))
 
         self.attn_fn = SparseSelfAttention(
             sparsity_config = VariableSparsityConfig(
                 num_heads = self.heads,
                 block = self.block_size,
                 num_random_blocks = num_random_blocks,
-                global_block_indices = global_blocks,
                 attention = 'unidirectional' if self.causal else 'bidirectional'
             ),
             max_seq_length = self.seq_len,
@@ -301,10 +331,6 @@ class SparseAttention(Attention):
             attn_mask = torch.zeros(i, j, device = device).to(q)
             mask_value = max_neg_value(q) / 2
             attn_mask.masked_fill_(mask, mask_value)
-
-            if self.noncausal_attn_len:
-                ind = slice(0, self.noncausal_attn_len)
-                attn_mask[ind, ind] = 0.
 
         out = self.attn_fn(q, k, v, attn_mask = attn_mask, key_padding_mask = key_pad_mask)
         out = rearrange(out, 'b h n d -> b n (h d)')

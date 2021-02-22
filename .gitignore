@@ -2,7 +2,10 @@
 model/*
 sessions/*
 
+dalle_pytorch/_dalle_pytorch.py
+nodrive
 dataset/*
+data/*
 scrapes/*
 vocab.json
 
