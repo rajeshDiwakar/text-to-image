@@ -13,7 +13,7 @@ from torchvision import transforms, datasets
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-
+from einops import rearrange
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -134,12 +134,14 @@ def train(args):
                     for i, batch in enumerate(dataset_loader_test):
                         batch = batch[0].to(device)
                         batch_pred = vae.forward(batch)
-
-                        batch = torchvision.utils.make_grid(batch)
-                        batch_pred = torchvision.utils.make_grid(batch_pred)
-
-                        batch = torch.cat((batch,batch_pred),-1)
-                        img = batch
+                        img = torch.stack([batch,batch_pred],dim=1)
+                        img = rearrange(img,'b x c h w -> (b x) c h w')
+                        # batch = torchvision.utils.make_grid(batch)
+                        # batch_pred = torchvision.utils.make_grid(batch_pred)
+                        #
+                        # batch = torch.cat((batch,batch_pred),-1)
+                        # img = batch
+                        img = torchvision.utils.make_grid(img)
                         img = img / 2 + 0.5     # unnormalize
                         npimg = img.cpu().numpy()
                         fig = plt.figure(figsize=(12,9))

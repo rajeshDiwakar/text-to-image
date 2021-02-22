@@ -108,6 +108,7 @@ def train(args):
         attn_dropout = 0.1,         # attention dropout
         ff_dropout = 0.1            # feedforward dropout
     )
+    dalle.to(device)
 
     # criterion = nn.CrossEntropyLoss()
     # optimizer = optim.SGD(vae.parameters(), lr=0.001, momentum=0.9)
@@ -162,12 +163,21 @@ def train(args):
                         images_pred = dalle.generate_images(text, mask = mask)
                         b,t,c,h,w = images.shape
 
+                        # images = rearrange(images,'b t c h w -> t b c h w')
+                        # images_pred = rearrange(images_pred,'b t c h w -> t b c h w')
+                        # images = torch.stack([torchvision.utils.make_grid(torch.squeeze(images[ti])) for ti in range(t)])
+                        # images_pred = torch.stack([torchvision.utils.make_grid(torch.squeeze(images_pred[ti])) for ti in range(t) ])
+                        # images = torch.cat((images,images_pred),-1)
+
                         images = rearrange(images,'b t c h w -> t b c h w')
                         images_pred = rearrange(images_pred,'b t c h w -> t b c h w')
+                        images = torch.stack([images,images_pred],dim=2)
+                        images = rearrange(images,'t b x c h w -> t (b x) c h w')
                         images = torch.stack([torchvision.utils.make_grid(torch.squeeze(images[ti])) for ti in range(t)])
-                        images_pred = torch.stack([torchvision.utils.make_grid(torch.squeeze(images_pred[ti])) for ti in range(t) ])
+                        # images_pred = torch.stack([torchvision.utils.make_grid(torch.squeeze(images_pred[ti])) for ti in range(t) ])
 
-                        images = torch.cat((images,images_pred),-1)
+
+
                         img = torch.unsqueeze(images,0)
                         img = torch.clamp((img + 1)*128,min=0,max=255)     # unnormalize
                         npimg = img.cpu().numpy()
