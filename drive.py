@@ -9,6 +9,12 @@ if not os.path.isfile('mycreds.txt'):
 
 class MyDrive(object):
     def __init__(self):
+        if os.path.isfile('nodrive'):
+            self.upload_to_drive = self.fake_upload_to_drive
+            return
+        else:
+            self.upload_to_drive = self._upload_to_drive
+
         self.parent_id='15KEW4Oqi_5xuaVI97YMuLVhXnpmgrE3A'
         self.gauth = GoogleAuth()
         # Try to load saved client credentials
@@ -26,6 +32,12 @@ class MyDrive(object):
         self.gauth.SaveCredentialsFile("mycreds.txt")
 
         # drive = GoogleDrive(gauth)
+
+    def fake_authorize_drive(self):
+        pass
+
+    def fake_upload_to_drive(*args,**kwargs):
+        pass
 
     def authorize_drive(self):
         # global drive
@@ -58,7 +70,7 @@ class MyDrive(object):
 #             raise ValueError('No folders match that specified folder name')
 
 
-    def upload_to_drive(self,list_files,parent_id):
+    def _upload_to_drive(self,list_files,parent_id):
         # global drive
         drive = self.authorize_drive()
         # parent_id = ''# parent id

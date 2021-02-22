@@ -1,6 +1,8 @@
 '''
 python main_dalle.py --train --data '/home/rajesh/work/limbo/text-to-image/dataset' --weight sessions/test2/weights.pth
 timelimit -t 600 -T 600 python main_dalle.py --train --data '/home/rajesh/work/limbo/text-to-image/dataset' --sess test3 --test_every 4 --epochs 2 --save_every 4 --batch_size 32
+
+timelimit -t 600 -T 600 python main_dalle.py --train --data '/home/rajesh/work/limbo/text-to-image/dataset' --sess test11_l1 --test_every 1 --epochs 2 --save_every 2 --batch_size 8 --codebook_dim 512 --num_tokens 2048 --num_layers 3
 '''
 
 
@@ -97,7 +99,7 @@ def train(args):
     # )
 
     dalle = DALLE(
-        dim = 256,#1024,
+        dim = 512,#1024,256
         vae = vae,                  # automatically infer (1) image sequence length and (2) number of image tokens
         num_text_tokens = len(dataset.vocab), #10000,    # vocab size for text
         text_seq_len = 256,         # text sequence length
