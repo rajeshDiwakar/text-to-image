@@ -17,6 +17,7 @@ from logger import Tacotron2Logger
 from hparams import create_hparams
 
 from drive import MyDrive
+import glob
 
 mdrive = MyDrive()
 upload_to_drive = mdrive.upload_to_drive
