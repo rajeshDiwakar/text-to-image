@@ -15,6 +15,7 @@ class MyDrive(object):
             return
         else:
             self.upload_to_drive = self._upload_to_drive
+            self.download_checkpoints = self._download_checkpoints
 
         self.parent_id='15KEW4Oqi_5xuaVI97YMuLVhXnpmgrE3A'
         self.gauth = GoogleAuth()
