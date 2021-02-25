@@ -1,0 +1,8 @@
+.git_/*
+**.pyc
+outdir/*
+demo.wav
+Dockerfile
+nodrive
+mycreds.txt
+tools/*
