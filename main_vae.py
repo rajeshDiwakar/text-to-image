@@ -83,7 +83,7 @@ def train(args):
         num_tokens = args.num_tokens,       # number of visual tokens. in the paper, they used 8192, but could be smaller for downsized projects
         codebook_dim = args.codebook_dim,      # codebook dimension
         hidden_dim = args.hidden_dim,         # hidden dimension
-        num_resnet_blocks = 1,   # number of resnet blocks
+        num_resnet_blocks = args.num_resnet,   # number of resnet blocks
         temperature = 0.9,       # gumbel softmax temperature, the lower this is, the harder the discretization
         straight_through = False, # straight-through for gumbel softmax. unclear if it is better one way or the other
         smooth_l1_loss=args.smooth_l1_loss,
@@ -224,6 +224,7 @@ if __name__ =='__main__':
     parser.add_argument('--num_tokens',type=int,default=1024)
     parser.add_argument('--codebook_dim',type=int,default=256)
     parser.add_argument('--hidden_dim',type=int,default=64)
+    parser.add_argument('--num_resnet',type=int,default=1)
     parser.add_argument('--kl_div_loss_weight',type=float,default=0)
     parser.add_argument('--smooth_l1_loss',default=False,action='store_true')
 
