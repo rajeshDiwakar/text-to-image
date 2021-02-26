@@ -34,7 +34,7 @@ unnormalize = T.Normalize((-mean / std).tolist(), (1.0 / std).tolist())
 class ImageDataset(Dataset):
     """text to video dataset."""
 
-    def __init__(self, root_dir, transform=None):
+    def __init__(self, root_dir, glob_pat='*/images/*', transform=None):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -47,7 +47,7 @@ class ImageDataset(Dataset):
         # return
         self.root_dir = root_dir
         self.transform = transform
-        self.images = glob.glob(os.path.join(root_dir,'*/images/*'))
+        self.images = glob.glob(os.path.join(root_dir,glob_pat))
         # self.meta = []
         # self.vocab = defaultdict(int)
         # _ = self.vocab['<BOS>'] # should be 0

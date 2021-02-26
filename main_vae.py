@@ -50,16 +50,18 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #                              std=[0.5, 0.5, 0.5])
 #     ])
 
-data_transform = transforms.Compose([
-        transforms.RandomHorizontalFlip()
-    ])
+
 
 def train(args):
 
     batch_size = args.batch_size
     # dataset = datasets.ImageFolder(root=args.data,
     #                                            transform=data_transform)
-    dataset = ImageDataset(args.data,transform=data_transform)
+    data_transform = transforms.Compose([
+            transforms.Scale((args.image_size,args.image_size)),
+            transforms.RandomHorizontalFlip()
+        ])
+    dataset = ImageDataset(args.data,glob_pat=args.glob_pat,transform=data_transform)
     dataset_loader = torch.utils.data.DataLoader(dataset,
                                                  batch_size=batch_size, shuffle=True,
                                                  num_workers=4)
@@ -165,13 +167,17 @@ def train(args):
 
 def test(args):
 
+    data_transform = transforms.Compose([
+            transforms.Scale((args.image_size,args.image_size)),
+            transforms.RandomHorizontalFlip()
+        ])
     vae = DiscreteVAE(
         image_size = args.image_size,
         num_layers = args.num_layers,          # number of downsamples - ex. 256 / (2 ** 3) = (32 x 32 feature map)
         num_tokens = args.num_tokens,       # number of visual tokens. in the paper, they used 8192, but could be smaller for downsized projects
         codebook_dim = args.codebook_dim,      # codebook dimension
         hidden_dim = args.hidden_dim,         # hidden dimension
-        num_resnet_blocks = 1,   # number of resnet blocks
+        num_resnet_blocks = args.num_resnet,   # number of resnet blocks
         temperature = 0.9,       # gumbel softmax temperature, the lower this is, the harder the discretization
         straight_through = False # straight-through for gumbel softmax. unclear if it is better one way or the other
     )
@@ -179,12 +185,12 @@ def test(args):
     sess_dir = os.path.join('sessions',args.session)
     weight_vae = os.path.join(sess_dir,args.weight_vae)
 
-    vae.load_state_dict(torch.load(weight_vae, map_location=device))
+    vae.load_state_dict(torch.load(weight_vae, map_location=device)['weights'])
 
     # load dataset
     # dataset = datasets.ImageFolder(root='data/images',
     #                                            transform=data_transform)
-    dataset = ImageDataset(args.data,transform=None)
+    dataset = ImageDataset(args.data,glob_pat='*/*',transform=data_transform)
     dataset_loader = torch.utils.data.DataLoader(dataset,
                                                  batch_size=4, shuffle=False,
                                                  num_workers=1)
@@ -192,6 +198,7 @@ def test(args):
     with torch.no_grad():
         for batch in dataset_loader:
             batch = batch[0].to(device)
+            print('batch image shape',batch.shape)
             batch_pred = vae.forward(batch)
 
             batch = torchvision.utils.make_grid(batch)
@@ -232,6 +239,7 @@ if __name__ =='__main__':
     parser.add_argument('--weight_vae',default='vae.pth')
     parser.add_argument('--resume',default=False,action='store_true')
     parser.add_argument('--resume_epoch',default=0,type=int)
+    parser.add_argument('--glob_pat',default='*/*')
 
     args = parser.parse_args()
     if not args.test and not args.train:
