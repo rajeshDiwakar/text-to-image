@@ -161,7 +161,10 @@ class DiscreteVAE(nn.Module):
 
         image_embeds = rearrange(image_embeds, 'b (time h w) d -> (b time) d h w', h = h, w = w,time=video_seq_len) #rajesh check
         images = self.decoder(image_embeds)
-        images = rearrange(images,'(b time) c h w -> b time c h w',time=video_seq_len) # check
+        if video_seq_len == 1:
+            images = rearrange(images,'(b time) c h w -> b c h w',time=video_seq_len) # check
+        else:
+            images = rearrange(images,'(b time) c h w -> b time c h w',time=video_seq_len) # check
 
         return images
 
