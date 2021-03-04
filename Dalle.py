@@ -89,7 +89,7 @@ class Dalle(object):
         x = x.to(self.device)
         with torch.no_grad():
             z_logits = self.enc(x) #[enc(x) for x in xs]
-        z=torch.argmax(z_logits,axis=1)
+        z=torch.argmax(z_logits,axis=1).cpu()
 
         if self.target_image_size == self.proc_image_size:
             del x,z_logits
@@ -131,8 +131,8 @@ class Dalle(object):
             x_stats = self.dec(z).float()
         x_rec = unmap_pixels(torch.sigmoid(x_stats[:, :3]))[0]
         x_rec = x_rec.permute(1,2,0)
-        print(x_rec.shape)
-        ret = x_rec.detach().numpy()
+        # print(x_rec.shape)
+        ret = x_rec.detach().cpu().numpy()
         if n==16:
             ret = ret[64:-64,64:-64,:]
         elif n==8:
