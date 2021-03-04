@@ -72,7 +72,7 @@ def train(args):
     os.makedirs(sess_dir,exist_ok=True)
     # os.makedirs(output_image_dir,exist_ok=True)
     # weight_vae = os.path.join(sess_dir,args.weight_vae)
-    # weight_dalle = os.path.join(sess_dir,args.weight_dalle)
+    weight_dalle = os.path.join(sess_dir,args.weight_dalle)
 
     summary_dir = os.path.join(sess_dir,'summary')
     writer = SummaryWriter(summary_dir)
