@@ -224,13 +224,13 @@ class GPTDataset(Dataset):
                 self.image_embs[vid] = json.load(f)
 
         self.meta = self.meta
-        print('Number of samples:',len(self.meta))
+        # print('Number of samples:',len(self.meta))
         # print([self.image_embs[k].keys() for k in self.image_embs.keys()])
         self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
         self.img_vocab_size = 8192
         self.img_vocab_offset = len(self.tokenizer)
         self.tokenizer.add_tokens(['img%d'%i for i in range(self.img_vocab_size)])
-        print('vocab_size:',len(self.tokenizer))
+        # print('vocab_size:',len(self.tokenizer))
         # assert self.tokenizer.vocab_size>50257,''
         # pad_token_id = self.tokenizer.pad_token_id
 
@@ -270,7 +270,9 @@ class GPTDataset(Dataset):
         # print('max/vocab_size:',max([self.img_vocab_offset+code for image in images for row in image for code in row]),len(self.tokenizer))
         text_codes = torch.cat([text_codes,image_codes])
         seq,label = text_codes[:-1], text_codes[1:]
-        print('seq,label',len(seq),len(label))
+        # print('seq,label',len(seq),len(label))
+
+        
         # seq = torch.LongTensor(seq)
         # label = torch.LongTensor(label)
         # return text

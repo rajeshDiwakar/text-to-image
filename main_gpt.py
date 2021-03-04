@@ -76,28 +76,6 @@ def train(args):
 
     summary_dir = os.path.join(sess_dir,'summary')
     writer = SummaryWriter(summary_dir)
-    # with open(weight_vae+'_config.json') as j:
-    #     vae_config = json.load(j)
-    # vae = DiscreteVAE( **vae_config )
-    # vae.to(device)
-    # vae.load_state_dict(torch.load(weight_vae, map_location=device))
-    #
-
-    # dalle = DALLE(
-    #     dim = args.dim,#1024,256
-    #     vae = vae,                  # automatically infer (1) image sequence length and (2) number of image tokens
-    #     num_text_tokens = len(dataset.vocab), #10000,    # vocab size for text
-    #     text_seq_len = args.text_seq_len,         # text sequence length
-    #     video_seq_len = args.video_seq_len,
-    #     depth = args.depth,#12,                 # should aim to be 64
-    #     heads = 16,                 # attention heads
-    #     dim_head = 64,              # attention head dimension
-    #     attn_dropout = 0.1,         # attention dropout
-    #     ff_dropout = 0.1            # feedforward dropout
-    # )
-    # dalle.to(device)
-
-
     # tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
     # img_vocab_size = 8192
     # tokenizer.add_tokens(['img%d'%i for i in range(img_vocab_size)])
@@ -128,8 +106,8 @@ def train(args):
             # text = batch[1].to(device)
             # mask = torch.ones_like(text).bool()
             inputs = batch[0] # rajesh check
-            inputs['input_ids'].to(device)
-            inputs['attention_mask'].to(device)
+            inputs['input_ids'] = inputs['input_ids'].to(device)
+            inputs['attention_mask'] = inputs['attention_mask'].to(device)
             labels = batch[1].to(device)
             outputs = model(**inputs, labels=labels) # rajesh check
             loss = outputs.loss
@@ -163,7 +141,9 @@ def train(args):
                 with torch.no_grad():
                     running_loss = 0
                     for i, batch in enumerate(dataset_loader_test):
-                        inputs = batch[0].to(device)
+                        inputs = batch[0]
+                        inputs['input_ids'] = inputs['input_ids'].to(device)
+                        inputs['attention_mask'] = inputs['attention_mask'].to(device)
                         labels = batch[1].to(device)
                         outputs = model(**inputs, labels=labels) # rajesh check
                         running_loss += outputs.loss
