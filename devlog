@@ -9,4 +9,31 @@ check num_layesr
 
 
 
+train on small model
+save model config
+check model initialisers
 
+increase hidden dim for vae
+
+fix cli opts
+
+
+vae = DiscreteVAE(
+    num_layers = 3,
+    num_tokens = 4096,
+    codebook_dim = 512,
+    hidden_dim = 256,
+)
+
+------------------
+separate training from validation
+increase vocab
+better logging frequency
+text+context
+tie weigght
+increase embedding matrix in model
+model.train()
+fix embedding shape ?
+log separate loss for image codes
+
+fix str/int error image image_emb

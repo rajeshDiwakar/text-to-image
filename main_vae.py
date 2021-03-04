@@ -199,7 +199,9 @@ def test(args):
         for batch in dataset_loader:
             batch = batch[0].to(device)
             print('batch image shape',batch.shape)
-            batch_pred = vae.forward(batch)
+            # batch_pred = vae.forward(batch)
+            codes = vae.get_codebook_indices(batch)
+            batch_pred = vae.decode(codes)
 
             batch = torchvision.utils.make_grid(batch)
             batch_pred = torchvision.utils.make_grid(batch_pred)
