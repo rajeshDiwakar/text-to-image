@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # coding: utf-8
 '''
-https://cdn.openai.com/dall-e/encoder.pkl
-https://cdn.openai.com/dall-e/decoder.pkl
+mkdir dall_e/data/
+wget -O dall_e/data/encoder.pkl https://cdn.openai.com/dall-e/encoder.pkl
+wget -O dall_e/data/decoder.pkl https://cdn.openai.com/dall-e/decoder.pkl
 '''
 
 
@@ -23,17 +24,20 @@ import gc
 import numpy
 
 class Dalle(object):
-    def __init__(self,target_image_size=256,proc_image_size=256,enc=None,dec=None):
+    def __init__(self,target_image_size=256,proc_image_size=256,enc=None,dec=None,device='cpu'):
         assert proc_image_size in [128,256,64]
         self.target_image_size = target_image_size
         self.proc_image_size = proc_image_size
 
         dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.enc, self.dec = None, None
+        self.device = torch.device(device)
         if enc:
             self.enc = load_model(enc, dev)
+            self.enc.to(self.device)
         if dec:
             self.dec = load_model(dec, dev)
+            self.dec.to(self.device)
 
 # def download_image(url):
 #     resp = requests.get(url)
@@ -82,7 +86,9 @@ class Dalle(object):
         elif type(img) == numpy.ndarray:
             img = T.ToPILImage()(img)
         x = self.preprocess(img) #[b c h w]
-        z_logits = self.enc(x) #[enc(x) for x in xs]
+        x.to(self.device)
+        with torch.no_grad():
+            z_logits = self.enc(x) #[enc(x) for x in xs]
         z=torch.argmax(z_logits,axis=1)
 
         if self.target_image_size == self.proc_image_size:
@@ -120,7 +126,7 @@ class Dalle(object):
             raise ValueError
         # print(codes_pad)
         codes_pad = codes_pad.long()
-        z = F.one_hot(codes_pad, num_classes=self.enc.vocab_size).permute(0, 3, 1, 2).float()
+        z = F.one_hot(codes_pad, num_classes=self.enc.vocab_size).permute(0, 3, 1, 2).float().to(self.device)
         with torch.no_grad():
             x_stats = self.dec(z).float()
         x_rec = unmap_pixels(torch.sigmoid(x_stats[:, :3]))[0]
@@ -137,6 +143,7 @@ class Dalle(object):
         return ret
 
     def to(self,device):
+        self.device = device
         if self.enc:
             self.enc.to(device)
         if self.dec:
