@@ -167,6 +167,7 @@ def train(args):
                         labels = batch[1].to(device)
                         outputs = model(**inputs, labels=labels) # rajesh check
                         running_loss += outputs.loss
+                        if i>9:break
                     running_loss = running_loss/len(dataset_loader_test)
                     writer.add_scalar('validation loss',running_loss,epoch * dataset_size+ it)
 
