@@ -217,6 +217,7 @@ class GPTDataset(Dataset):
                 caption = json.load(f)
                 for cap in caption:
                     text = cap['context']
+                    if not len(cap['mframes']):continue
                     # text_ids = [self.vocab[tok.text] for tok in nlp.tokenizer(text)]
                     self.meta.append({'vid':vid,"context":cap['context'][-10:],'text':cap['text'],'frames':cap['mframes'][0]})
             with open(p+'/img_emb.json') as f:
