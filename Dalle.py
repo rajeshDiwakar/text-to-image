@@ -33,11 +33,11 @@ class Dalle(object):
         self.enc, self.dec = None, None
         self.device = torch.device(device)
         if enc:
-            self.enc = load_model(enc, dev)
-            self.enc.to(self.device)
+            self.enc = load_model(enc, dev).to(device)
+            # self.enc.to(self.device)
         if dec:
-            self.dec = load_model(dec, dev)
-            self.dec.to(self.device)
+            self.dec = load_model(dec, dev).to(device)
+            # self.dec.to(self.device)
 
 # def download_image(url):
 #     resp = requests.get(url)
@@ -86,7 +86,7 @@ class Dalle(object):
         elif type(img) == numpy.ndarray:
             img = T.ToPILImage()(img)
         x = self.preprocess(img) #[b c h w]
-        x.to(self.device)
+        x = x.to(self.device)
         with torch.no_grad():
             z_logits = self.enc(x) #[enc(x) for x in xs]
         z=torch.argmax(z_logits,axis=1)
