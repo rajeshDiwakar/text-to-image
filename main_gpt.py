@@ -57,7 +57,7 @@ def train(args):
     batch_size = args.batch_size
     # dataset = datasets.ImageFolder(root=args.data,
     #                                            transform=data_transform)
-    dataset = GPTDataset(args.data)
+    dataset = GPTDataset(args.data,context_size=args.context_size)
     dataset_loader = torch.utils.data.DataLoader(dataset,
                                                  batch_size=batch_size, shuffle=True,collate_fn=GPTDataset.collate_fn,
                                                  num_workers=2)
@@ -79,7 +79,7 @@ def train(args):
     # tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
     # img_vocab_size = 8192
     # tokenizer.add_tokens(['img%d'%i for i in range(img_vocab_size)])
-    config = GPT2Config(vocab_size=(len(dataset.tokenizer))) #.vocab_size))
+    config = GPT2Config(n_positions=512,n_ctx=512,vocab_size=(len(dataset.tokenizer)),gradient_checkpointing=args.grad_check) #.vocab_size))
     model = GPT2LMHeadModel(config).from_pretrained('gpt2').to(device)
     emb = model.resize_token_embeddings(len(dataset.tokenizer))
     model.train()
@@ -222,6 +222,9 @@ if __name__ =='__main__':
     parser.add_argument('--test',action='store_true',default=False,help='for testing use --test')  #not really required
     parser.add_argument('--weight_vae',default='vae.pth')
     parser.add_argument('--weight_dalle',default='dalle.pth')
+
+    parser.add_argument('--grad_check',default=False,action='store_true')
+    parser.add_argument('--context_size',default=10,type=int)
 
     args = parser.parse_args()
     if not args.test and not args.train:

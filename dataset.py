@@ -191,7 +191,7 @@ class VideoDataset(Dataset):
 class GPTDataset(Dataset):
     """(text+image) => label"""
 
-    def __init__(self, root_dir, transform=None):
+    def __init__(self, root_dir, transform=None,context_size=10):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -219,7 +219,7 @@ class GPTDataset(Dataset):
                     text = cap['context']
                     if not len(cap['mframes']):continue
                     # text_ids = [self.vocab[tok.text] for tok in nlp.tokenizer(text)]
-                    self.meta.append({'vid':vid,"context":cap['context'][-10:],'text':cap['text'],'frames':cap['mframes'][0]})
+                    self.meta.append({'vid':vid,"context":cap['context'][-context_size:],'text':cap['text'],'frames':cap['mframes'][0][:1]})
             with open(p+'/img_emb.json') as f:
                 self.image_embs[vid] = json.load(f)
 
@@ -254,9 +254,11 @@ class GPTDataset(Dataset):
             #                         '%d.jpg'%frame)
             # image = io.imread(img_name)
             # images.append(image)
-        if len(images)<3:
-            images = images+[images[-1] for _ in range(5-len(images))]
 
+        # if len(images)<3:
+        #     images = images+[images[-1] for _ in range(5-len(images))]
+        if len(images):
+            images = [images[0]]
 
         # image_codes = torch.tensor(images).long()
         # print(images[0])
@@ -272,7 +274,7 @@ class GPTDataset(Dataset):
         seq,label = text_codes[:-1], text_codes[1:]
         # print('seq,label',len(seq),len(label))
 
-        
+
         # seq = torch.LongTensor(seq)
         # label = torch.LongTensor(label)
         # return text
@@ -300,6 +302,7 @@ class GPTDataset(Dataset):
         labels = torch.stack(labels).long()
 
         return ({'input_ids':sequences,'attention_mask':attention}, labels)
+
 
 
 def test_videodataset():
