@@ -90,7 +90,7 @@ def train(args):
     # img_vocab_size = 8192
     # tokenizer.add_tokens(['img%d'%i for i in range(img_vocab_size)])
     config = GPT2Config(n_positions=args.gpt_n_ctx,n_ctx=args.gpt_n_ctx,vocab_size=dataset.vocab_size,gradient_checkpointing=args.grad_check) #.vocab_size))
-    model = GPT2LMHeadModel(config).from_pretrained('gpt2').to(device)
+    model = GPT2LMHeadModel(config).from_pretrained(arg.weight_gpt).to(device)
     emb = model.resize_token_embeddings(dataset.vocab_size)
     model.train()
     # print('weight shape',emb.weight.shape)
@@ -133,7 +133,7 @@ def train(args):
             optimizer.step()
             sys.stdout.write('\r[%s] %6d/%6d: loss: %f'%(time.asctime(),it,args.epochs*dataset_size,loss.item()))
             running_loss += loss.item()
-            writer.add_scalar('training loss',running_loss / (it+1),epoch * dataset_size+ it)
+            writer.add_scalar('training loss',loss.item(),epoch * dataset_size+ it)
             if it%args.save_every==(args.save_every-1):
                 torch.save(model.state_dict(), weight_dalle)
                 try:
@@ -234,7 +234,7 @@ if __name__ =='__main__':
     parser.add_argument('--test',action='store_true',default=False,help='for testing use --test')  #not really required
     parser.add_argument('--weight_vae',default='vae.pth')
     parser.add_argument('--weight_dalle',default='dalle.pth')
-
+    parser.add_argument('--weight_gpt',default='gpt2')
     parser.add_argument('--grad_check',default=False,action='store_true')
     parser.add_argument('--context_size',default=10,type=int)
     parser.add_argument('--gpt_n_ctx',default=512,type=int)
