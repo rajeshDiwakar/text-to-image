@@ -290,7 +290,7 @@ class GPTDataset(Dataset):
         return (seq,label)
 
     def collate_fn(batch):
-        pad_token_id = -100 #anything GPTDataset.pad_token_id
+        pad_token_id = 0 #anything GPTDataset.pad_token_id
         # tokenizer = GPTDataset.tokenizer
 
         sequences = [item[0] for item in batch]
