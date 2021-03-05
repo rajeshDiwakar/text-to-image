@@ -20,7 +20,7 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
 from einops import rearrange
-from transformers import GPT2Tokenizer, GPT2LMHeadModel, GPT2Config
+from transformers import GPT2Tokenizer, GPT2LMHeadModel, GPT2Config, GPTDatasetSplit
 from transformers import Trainer, TrainingArguments
 import argparse
 import warnings
@@ -89,7 +89,7 @@ def train(args):
     # tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
     # img_vocab_size = 8192
     # tokenizer.add_tokens(['img%d'%i for i in range(img_vocab_size)])
-    config = GPT2Config(n_positions=512,n_ctx=512,vocab_size=(len(dataset.tokenizer)),gradient_checkpointing=args.grad_check) #.vocab_size))
+    config = GPT2Config(n_positions=args.gpt_n_ctx,n_ctx=args.gpt_n_ctx,vocab_size=(len(dataset.tokenizer)),gradient_checkpointing=args.grad_check) #.vocab_size))
     model = GPT2LMHeadModel(config).from_pretrained('gpt2').to(device)
     emb = model.resize_token_embeddings(len(dataset.tokenizer))
     model.train()
@@ -237,6 +237,7 @@ if __name__ =='__main__':
 
     parser.add_argument('--grad_check',default=False,action='store_true')
     parser.add_argument('--context_size',default=10,type=int)
+    parser.add_argument('--gpt_n_ctx',default=512,type=int)
 
     args = parser.parse_args()
     if not args.test and not args.train:
