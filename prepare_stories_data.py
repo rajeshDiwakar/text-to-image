@@ -98,8 +98,10 @@ def chunk_caption(caption,win_size=8,hop_length=5,context_size=30,mode='word',fp
             # for the duration of text there will be many frames.
             # We can sample a few continuous frames at different time in this duration and each such group can represent this text
             mframes = [frames[i:i+frame_seq_size] for i in range(0,len(frames)-frame_seq_size,frame_hop_len)]
+            mframes = [mf for mf in mframes if len(mf)]
             if not len(mframes):
                 logging.warning('frames len %d  '%len(frames)+' \n>> '+str(frames))
+                continue
 
             chunks.append({'text':text,
                            'context':context,
@@ -128,7 +130,9 @@ def extract_frames(vid,chunks,outdir,encoder=None,write_image=True):
 
     os.makedirs(outdir,exist_ok=True)
     # frames = [frame for c in chunks for frames in c['mframes'] for frame in frames]
-    frames =[frame for c in chunks for frame in c['frames']]
+    # frames =[frame for c in chunks for frame in c['frames']]
+    # print(chunks)
+    frames =[mframe[-1] for c in chunks for mframe in c['mframes']]
     img_embs = {}
     frames =list(set(frames))
     frames.sort()

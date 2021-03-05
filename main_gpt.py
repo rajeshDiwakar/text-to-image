@@ -58,14 +58,24 @@ def train(args):
     # dataset = datasets.ImageFolder(root=args.data,
     #                                            transform=data_transform)
     dataset = GPTDataset(args.data,context_size=args.context_size)
-    dataset_loader = torch.utils.data.DataLoader(dataset,
+    dataset.shuffle()
+    # dataset_size = len(dataset)
+    # split into train test
+    train_size = int(len(dataset)*0.85)
+    test_size = len(dataset)-train_size
+
+    train_dataset = GPTDatasetSplit(dataset,offset=0,len=train_size)
+    test_dataset = GPTDatasetSplit(dataset,offset=train_size,len=test_size)
+    del train_size,test_size
+    train_loader = torch.utils.data.DataLoader(train_dataset,
                                                  batch_size=batch_size, shuffle=True,collate_fn=GPTDataset.collate_fn,
                                                  num_workers=2)
-    dataset_loader_test = torch.utils.data.DataLoader(dataset,
+    # test_dataset = GPTDataset(args.test_data,context_size=args.context_size)
+    test_loader = torch.utils.data.DataLoader(test_dataset,
                                                  batch_size=min(batch_size,32), shuffle=True,collate_fn=GPTDataset.collate_fn,
                                                  num_workers=1)
 
-    assert len(dataset_loader)>0, 'no image found in data dir'
+    assert len(train_loader)>0, 'no image found in data dir'
 
     sess_dir = os.path.join('sessions',args.session)
     # output_image_dir = os.path.join(sess_dir,'output')
@@ -89,9 +99,9 @@ def train(args):
 
     # criterion = nn.CrossEntropyLoss()
     # optimizer = optim.SGD(vae.parameters(), lr=0.001, momentum=0.9)
-    # dataset_size = len(dataset_loader)
-    # assert dataset_size>= batch_size, 'dataset (%d) < batch_size(%d) '%(len(dataset_loader), batch_size)
-    dataset_size = len(dataset_loader) # number of batches in one epoch
+    # dataset_size = len(train_loader)
+    # assert dataset_size>= batch_size, 'dataset (%d) < batch_size(%d) '%(len(train_loader), batch_size)
+    dataset_size = len(train_loader) # number of batches in one epoch
     print("Batch per iteration: ",dataset_size)
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
     # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10*dataset_size,20*dataset_size], gamma=0.1)
@@ -99,7 +109,7 @@ def train(args):
     for epoch in range(args.epochs):
         running_loss = 0.0
 
-        for it,batch in enumerate(dataset_loader):
+        for it,batch in enumerate(train_loader):
             # images = torch.randn(4, 3, 256, 256)
             it = epoch*dataset_size + it
             # images = batch[0].to(device)
@@ -108,8 +118,8 @@ def train(args):
             inputs = batch[0] # rajesh check
             inputs['input_ids'] = inputs['input_ids'].to(device)
             inputs['attention_mask'] = inputs['attention_mask'].to(device)
-            labels = batch[1].to(device)
-            outputs = model(**inputs, labels=labels) # rajesh check
+            # labels = batch[1].to(device)
+            outputs = model(**inputs, labels=inputs['input_ids']) # rajesh check
             loss = outputs.loss
             # logits = outputs.logits
             # loss.backward()
@@ -140,15 +150,15 @@ def train(args):
 
                 with torch.no_grad():
                     running_loss = 0
-                    for i, batch in enumerate(dataset_loader_test):
+                    for i, batch in enumerate(test_loader):
                         inputs = batch[0]
                         inputs['input_ids'] = inputs['input_ids'].to(device)
                         inputs['attention_mask'] = inputs['attention_mask'].to(device)
-                        labels = batch[1].to(device)
-                        outputs = model(**inputs, labels=labels) # rajesh check
+                        # labels = batch[1].to(device)
+                        outputs = model(**inputs, labels=inputs['input_ids']) # rajesh check
                         running_loss += outputs.loss
                         if i>9:break
-                    running_loss = running_loss/len(dataset_loader_test)
+                    running_loss = running_loss/i if i>0 else 0
                     writer.add_scalar('validation loss',running_loss,epoch * dataset_size+ it)
 
 
@@ -209,6 +219,8 @@ if __name__ =='__main__':
     parser.add_argument('--test_every',default=100,type=int)
     parser.add_argument('--resume',default=0,type=int)
     parser.add_argument('--data',default='data',help='data dir. data/classes/img.jpg')
+    # parser.add_argument('--train_data',required=True)
+    # parser.add_argument('--test_data',required=True)
     parser.add_argument('--batch_size',default=128,type=int)
     # parser.add_argument('--drive_id',default='15KEW4Oqi_5xuaVI97YMuLVhXnpmgrE3A')
     parser.add_argument('--drive_id',default=None)
