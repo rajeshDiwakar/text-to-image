@@ -20,12 +20,12 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
 from einops import rearrange
-from transformers import GPT2Tokenizer, GPT2LMHeadModel, GPT2Config, GPTDatasetSplit
+from transformers import GPT2Tokenizer, GPT2LMHeadModel, GPT2Config
 from transformers import Trainer, TrainingArguments
 import argparse
 import warnings
 
-from dataset import VideoDataset, GPTDataset
+from dataset import VideoDataset, GPTDataset, GPTDatasetSplit
 warnings.simplefilter("ignore")
 
 from drive import MyDrive
