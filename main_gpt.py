@@ -90,7 +90,7 @@ def train(args):
     # img_vocab_size = 8192
     # tokenizer.add_tokens(['img%d'%i for i in range(img_vocab_size)])
     config = GPT2Config(n_positions=args.gpt_n_ctx,n_ctx=args.gpt_n_ctx,vocab_size=dataset.vocab_size,gradient_checkpointing=args.grad_check) #.vocab_size))
-    model = GPT2LMHeadModel(config).from_pretrained(arg.weight_gpt).to(device)
+    model = GPT2LMHeadModel(config).from_pretrained(args.weight_gpt).to(device)
     emb = model.resize_token_embeddings(dataset.vocab_size)
     model.train()
     # print('weight shape',emb.weight.shape)
