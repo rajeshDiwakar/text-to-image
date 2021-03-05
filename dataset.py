@@ -229,9 +229,14 @@ class GPTDataset(Dataset):
         # print([self.image_embs[k].keys() for k in self.image_embs.keys()])
         self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
         self.img_vocab_size = 8192
+        # self.context_token_id = len(self.tokenizer)
+        # self.text_token_id = self.context_token_id+1
+        # self.image_token_id = self.context_token_id+2
         self.tokenizer.add_tokens(['[context]','[text]','[image]'])
         self.img_vocab_offset = len(self.tokenizer)
-        self.tokenizer.add_tokens(['img%d'%i for i in range(self.img_vocab_size)])
+        # self.tokenizer.add_tokens(['img%d'%i for i in range(self.img_vocab_size)])
+        self.vocab_size = len(self.tokenizer)+8192
+
         # print('vocab_size:',len(self.tokenizer))
         # assert self.tokenizer.vocab_size>50257,''
         # pad_token_id = self.tokenizer.pad_token_id
