@@ -105,7 +105,7 @@ class Dalle(object):
         gc.collect()
         return ret
 
-    def decode(self,codes,pad=4522):
+    def decode(self,codes,pad=4522,ret_pil=False):
         '''
         codes is [bXnXn] n can be 8,16,32. It is a tensor
         '''
@@ -115,12 +115,12 @@ class Dalle(object):
             codes = torch.from_numpy(codes)
 
         if len(codes.shape)==2:
-            codes = torch.unsqueeze(0)
+            codes = codes.unsqueeze(0)
         b,n = codes.shape[:2]
         if n==8 or n==16:
             l = int((32-n)/2)
-            codes_pad = torch.zeros(b,32,32)
-            codes_pad[:] = pad
+            codes_pad = torch.empty(b,32,32).fill_(pad)
+            # codes_pad[:] = pad
             codes_pad[:,l:-l,l:-l] = codes
         elif n != 32:
             raise ValueError
@@ -129,16 +129,22 @@ class Dalle(object):
         z = F.one_hot(codes_pad, num_classes=self.enc.vocab_size).permute(0, 3, 1, 2).float().to(self.device)
         with torch.no_grad():
             x_stats = self.dec(z).float()
-        x_rec = unmap_pixels(torch.sigmoid(x_stats[:, :3]))[0]
-        x_rec = x_rec.permute(1,2,0)
+        x_rec = unmap_pixels(torch.sigmoid(x_stats[:, :3]))
+
+        if ret_pil:
+            return x_rec[0]
+
+        x_rec = x_rec.permute(0,2,3,1)#(1,2,0)
         # print(x_rec.shape)
         ret = x_rec.detach().cpu().numpy()
         if n==16:
-            ret = ret[64:-64,64:-64,:]
+            ret = ret[:,64:-64,64:-64,:]
         elif n==8:
-            ret = ret[32:-32,32:-32,:]
+            ret = ret[:,32:-32,32:-32,:]
         del x_rec,x_stats
         gc.collect()
+        if ret.shape[0]==1:
+            ret = ret[0]
         # x_rec = T.ToPILImage(mode='RGB')(x_rec[0])
         return ret
 
@@ -163,16 +169,24 @@ if __name__ == '__main__':
     import cv2
     img = cv2.imread(img)
     de = Dalle(enc=enc,dec=dec,proc_image_size=128)
-    img_enc = de.encode(img)
-    print(str(img_enc)[:200])
-    print(img_enc.shape)
+    # img_enc = de.encode(img)
+    # print(str(img_enc)[:200])
+    # print(img_enc.shape)
 
+    img_enc = [5465, 3612, 5614, 2889, 5614, 2889, 2889, 2889, 2889, 2889, 2889, 2889, 3612, 5614, 2529, 5614, 5614, 2889, 3770, 2889, 2889, 2889, 2889, 2889, 2889, 3612, 3612, 3612, 3612, 3612, 3612, 2529, 2529, 2889, 4547, 2889, 2889, 2889, 2889, 2889, 6170, 2889, 6170, 6170, 6170, 6170, 6170, 6170, 2889, 2889, 2840, 2889, 2889, 2889, 5075, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 4187, 5236, 3769, 5971, 4449, 1899, 1899, 1899, 1899, 1899, 3430, 672, 672, 2022, 2022, 2022, 881, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    img_enc = [img_enc, img_enc]
+    img_enc = torch.LongTensor(img_enc).reshape(-1,16,16)
     img_rec = de.decode(img_enc)
-    print(str(img_rec)[:200])
+    # print(str(img_rec)[:200])
     print(img_rec.shape)
-    cv2.imshow('Reconstructed',img_rec)
-    cv2.waitKey(0)
-
+    if len(img_rec.shape)==3:
+        cv2.imshow('Reconstructed',img_rec)
+        cv2.waitKey(0)
+    else:
+        for i in range(img_rec.shape[0]):
+            print(i)
+            cv2.imshow('Reconstructed',img_rec[i])
+            cv2.waitKey(0)
 
 
 

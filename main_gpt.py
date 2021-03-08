@@ -4,6 +4,8 @@ timelimit -t 600 -T 600 python main_dalle.py --train --data '/home/rajesh/work/l
 
 timelimit -t 600 -T 600 python main_dalle.py --train --data '/home/rajesh/work/limbo/text-to-image/dataset' --sess test11_l1 --test_every 1 --epochs 2 --save_every 2 --batch_size 8 --codebook_dim 512 --num_tokens 2048 --num_layers 3
 timelimit -t 600 -T 600 python main_dalle.py --train --data '/home/rajesh/work/limbo/text-to-image/dataset' --sess test1 --test_every 1 --epochs 2 --save_every 2 --batch_size 8
+timelimit -t 600 -T 600 python main_gpt.py --train --data dataset --sess test1 --test_every 1 --epochs 2 --save_every 2 --batch_size 8
+
 '''
 
 
@@ -22,9 +24,12 @@ from torch.utils.tensorboard import SummaryWriter
 from einops import rearrange
 from transformers import GPT2Tokenizer, GPT2LMHeadModel, GPT2Config
 from transformers import Trainer, TrainingArguments
+from transformers import WEIGHTS_NAME, CONFIG_NAME
+
 import argparse
 import warnings
 
+from Dalle import Dalle
 from dataset import VideoDataset, GPTDataset, GPTDatasetSplit
 warnings.simplefilter("ignore")
 
@@ -75,6 +80,7 @@ def train(args):
                                                  batch_size=min(batch_size,32), shuffle=True,collate_fn=GPTDataset.collate_fn,
                                                  num_workers=1)
 
+
     assert len(train_loader)>0, 'no image found in data dir'
 
     sess_dir = os.path.join('sessions',args.session)
@@ -93,6 +99,21 @@ def train(args):
     model = GPT2LMHeadModel(config).from_pretrained(args.weight_gpt).to(device)
     emb = model.resize_token_embeddings(dataset.vocab_size)
     model.train()
+
+    # output_dir = './mygpt/'
+    model_to_save = model.module if hasattr(model, 'module') else model
+    output_model_file = os.path.join(sess_dir, WEIGHTS_NAME)
+    output_config_file = os.path.join(sess_dir, CONFIG_NAME)# save model and model configs
+
+    model_to_save.config.to_json_file(output_config_file)# save tokenizer
+    # dataset.tokenizer.save_pretrained(output_dir)
+    # sys.exit(0)
+
+    enc = 'dall_e/data/encoder.pkl'
+    dec = 'dall_e/data/decoder.pkl'
+    DE = Dalle(enc=enc,dec=dec,proc_image_size=128)
+    # DE.dec.to(device)
+
     # print('weight shape',emb.weight.shape)
     # print(dataset.img_vocab_size+dataset.tokenizer.vocab_size)
     # print('embedding shape:',emb.shape)
@@ -106,6 +127,13 @@ def train(args):
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
     # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10*dataset_size,20*dataset_size], gamma=0.1)
     image_list = []
+
+    fixed_test_set = [test_dataset[i] for i in range(4)]
+    # fixed_test_set_padded = dataset.collate_fn(fixed_test_set)
+    fixed_test_set_img_true = [s[0][-256:] for s in fixed_test_set ]
+    fixed_test_set_img_true = torch.LongTensor(fixed_test_set_img_true).reshape(-1,16,16)
+    fixed_test_set_img_true = DE.decode(fixed_test_set_img_true)
+
     for epoch in range(args.epochs):
         running_loss = 0.0
 
@@ -135,7 +163,8 @@ def train(args):
             running_loss += loss.item()
             writer.add_scalar('training loss',loss.item(),epoch * dataset_size+ it)
             if it%args.save_every==(args.save_every-1):
-                torch.save(model.state_dict(), weight_dalle)
+                # torch.save(model.state_dict(), weight_dalle)
+                model.save_pretrained(sess_dir)
                 try:
                     if args.drive_id:
                         files = glob.glob(os.path.join(summary_dir,'*'))
@@ -161,6 +190,37 @@ def train(args):
                     running_loss = running_loss/i if i>0 else 0
                     writer.add_scalar('validation loss',running_loss,epoch * dataset_size+ it)
 
+                    # testing on fixed set
+                    fixed_test_set_pred = []#model(**fixed_test_set_padded)
+
+                    num_image_codes = 256
+                    for b in range(len(fixed_test_set)):
+                        past = None
+                        image_codes = []
+                        context = fixed_test_set[b]
+                        for i in range(num_image_codes):
+                            outputs = model(context, past_key_values=past)
+                            output = outputs.logits
+                            past = outputs.past_key_values
+                            token = torch.argmax(output[..., -1, :])
+
+                            image_codes += [token.tolist()]
+                            context = token.unsqueeze(0)
+                            gc.collect()
+                        image_codes = [max(0,i-50260) for i in image_codes]
+                        fixed_test_set_pred.append(image_codes)
+
+
+                    fixed_test_set_img_pred = torch.LongTensor(fixed_test_set_pred).reshape(-1,16,16)
+                    fixed_test_set_img_pred = DE.decode(fixed_test_set_img_pred)
+
+                    img = torch.stack([fixed_test_set_img_true,fixed_test_set_img_pred],dim=1)
+                    img = rearrange(img,'b x c h w -> (b x) c h w')
+
+                    img = torchvision.utils.make_grid(img)
+                    # img = img / 2 + 0.5     # unnormalize
+                    npimg = img.cpu().numpy()
+                    writer.add_image(npimg,running_loss,epoch * dataset_size+ it)
 
         sys.stdout.write('\n[%s]Epoch:%d loss: %f'%(' '.join(time.asctime().split(' ')[1:-1]),epoch,running_loss/dataset_size)) # some samples are going for testing??
 
@@ -171,6 +231,54 @@ def train(args):
 
 
 def test(args):
+    '''
+    python main_gpt.py --test --gpt_n_ctx 350
+    '''
+    from tqdm import tqdm
+    weight_gpt = 'sessions/test4'
+    # enc = 'dall_e/data/encoder.pkl'
+    enc = None
+    dec = 'dall_e/data/decoder.pkl'
+    DE = Dalle(enc=enc,dec=dec,proc_image_size=128)
+
+    tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+    tokenizer.add_tokens(['[context]','[text]','[image]'])
+    print('loading gpt model')
+    config = GPT2Config(n_positions=args.gpt_n_ctx,n_ctx=args.gpt_n_ctx,vocab_size=(50257+3+8192)) #.vocab_size))
+    model = GPT2LMHeadModel(config).from_pretrained(weight_gpt).to(device)
+    # model.load_state_dict(torch.load(weight_gpt, map_location=device))
+    model.eval()
+    print('done')
+    # emb = model.resize_token_embeddings(dataset.vocab_size)
+
+    while True:
+        context = 'there was a king'#input('\n+++++++++\nContext:> ').strip()
+        text = 'he had a great' input('\nText:>').strip()
+        text =' '.join(['[context]', context, '[text]',text,'[image]'])
+        # inputs = tokenizer(text,return_tensors='pt')['input_ids'][0]
+        inputs = tokenizer.encode(text)
+        context = torch.tensor([inputs])
+
+        image_codes = []
+        num_image_codes = 16#256
+        # for i in tqdm(range(num_image_codes)):
+        #     outputs = model(**inputs)
+        #     logits = outputs.logits[0][-1] #[1,n,50257]
+        #     pred = torch.argmax(logits)
+
+        # generated = tokenizer.encode("The Manhattan bridge")
+        # context = torch.tensor([generated])
+        past = None
+        for i in tqdm(range(num_image_codes)):
+            output, past = model(context, past_key_values=past)
+            print(output)
+            token = torch.argmax(output[..., -1, :])
+
+            image_codes += [token.tolist()]
+            print('generated token',token.tolist())
+            context = token.unsqueeze(0)
+
+    return
 
     vae = DiscreteVAE(
         image_size = args.image_size,
