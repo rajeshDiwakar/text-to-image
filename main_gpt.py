@@ -28,7 +28,7 @@ from transformers import WEIGHTS_NAME, CONFIG_NAME
 
 import argparse
 import warnings
-
+import gc
 from Dalle import Dalle
 from dataset import VideoDataset, GPTDataset, GPTDatasetSplit
 warnings.simplefilter("ignore")
