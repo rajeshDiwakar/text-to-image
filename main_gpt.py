@@ -112,7 +112,8 @@ def train(args):
     enc = 'dall_e/data/encoder.pkl'
     dec = 'dall_e/data/decoder.pkl'
     DE = Dalle(enc=enc,dec=dec,proc_image_size=128)
-    # DE.dec.to(device)
+    DE.device = device
+    DE.dec.to(device)
 
     # print('weight shape',emb.weight.shape)
     # print(dataset.img_vocab_size+dataset.tokenizer.vocab_size)
