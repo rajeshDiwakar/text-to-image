@@ -253,7 +253,7 @@ def test(args):
 
     while True:
         context = 'there was a king'#input('\n+++++++++\nContext:> ').strip()
-        text = 'he had a great' input('\nText:>').strip()
+        text = 'he had a great' #input('\nText:>').strip()
         text =' '.join(['[context]', context, '[text]',text,'[image]'])
         # inputs = tokenizer(text,return_tensors='pt')['input_ids'][0]
         inputs = tokenizer.encode(text)
