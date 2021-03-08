@@ -131,7 +131,7 @@ def train(args):
     fixed_test_set = [test_dataset[i] for i in range(4)]
     # fixed_test_set_padded = dataset.collate_fn(fixed_test_set)
     fixed_test_set_img_true = [s[0][-256:].tolist() for s in fixed_test_set ]
-    fixed_test_set_img_true = torch.LongTensor(fixed_test_set_img_true).reshape(-1,16,16)
+    fixed_test_set_img_true = torch.LongTensor(fixed_test_set_img_true).reshape(-1,16,16)-50260
     fixed_test_set_img_true = DE.decode(fixed_test_set_img_true)
 
     for epoch in range(args.epochs):
