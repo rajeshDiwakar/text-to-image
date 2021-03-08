@@ -222,8 +222,16 @@ def train(args):
                     img = torchvision.utils.make_grid(img)
                     # img = img / 2 + 0.5     # unnormalize
                     npimg = img.cpu().numpy()
-                    print(str(npimg.shape))
-                    writer.add_image(npimg,running_loss,epoch * dataset_size+ it)
+                    # print(str(npimg.shape))
+                    # writer.add_image(npimg,running_loss,epoch * dataset_size+ it)
+                    fig = plt.figure(figsize=(12,9))
+                    plt.imshow(np.transpose(npimg, (1, 2, 0)))
+                    # impath = os.path.join(output_image_dir,'iter-%d_img-%d.jpg'%(epoch*dataset_size+it,i))
+                    # plt.savefig( impath )
+                    # image_list.append(impath)
+                    writer.add_figure('generated images',
+                            fig,
+                            global_step=epoch * dataset_size + it)
 
         sys.stdout.write('\n[%s]Epoch:%d loss: %f'%(' '.join(time.asctime().split(' ')[1:-1]),epoch,running_loss/dataset_size)) # some samples are going for testing??
 
