@@ -197,7 +197,7 @@ def train(args):
                     for b in range(len(fixed_test_set)):
                         past = None
                         image_codes = []
-                        context = fixed_test_set[b][0]
+                        context = fixed_test_set[b][0].to(device)
                         for i in range(num_image_codes):
                             outputs = model(context, past_key_values=past)
                             output = outputs.logits
