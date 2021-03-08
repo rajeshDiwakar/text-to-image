@@ -116,6 +116,7 @@ class Dalle(object):
 
         if len(codes.shape)==2:
             codes = codes.unsqueeze(0)
+        codes = codes.to(self.device)
         b,n = codes.shape[:2]
         if n==8 or n==16:
             l = int((32-n)/2)
