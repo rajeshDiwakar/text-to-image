@@ -129,12 +129,12 @@ def train(args):
     # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10*dataset_size,20*dataset_size], gamma=0.1)
     image_list = []
 
-    fixed_test_set = [test_dataset[i] for i in range(4)]
+    fixed_test_set = [test_dataset[i] for i in range(2)]
     # fixed_test_set_padded = dataset.collate_fn(fixed_test_set)
     fixed_test_set_img_true = [s[0][-256:].tolist() for s in fixed_test_set ]
     fixed_test_set_img_true = torch.LongTensor(fixed_test_set_img_true).reshape(-1,16,16)-50260
     fixed_test_set_img_true = DE.decode(fixed_test_set_img_true)
-
+    fixed_test_set_img_true = torch.from_numpy(fixed_test_set_img_true)
     for epoch in range(args.epochs):
         running_loss = 0.0
 
@@ -214,7 +214,8 @@ def train(args):
 
                     fixed_test_set_img_pred = torch.LongTensor(fixed_test_set_pred).reshape(-1,16,16)
                     fixed_test_set_img_pred = DE.decode(fixed_test_set_img_pred)
-
+                    fixed_test_set_img_pred = torch.from_numpy(fixed_test_set_img_pred)
+                    
                     img = torch.stack([fixed_test_set_img_true,fixed_test_set_img_pred],dim=1)
                     img = rearrange(img,'b x c h w -> (b x) c h w')
 
