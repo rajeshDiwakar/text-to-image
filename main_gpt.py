@@ -215,9 +215,9 @@ def train(args):
                     fixed_test_set_img_pred = torch.LongTensor(fixed_test_set_pred).reshape(-1,16,16)
                     fixed_test_set_img_pred = DE.decode(fixed_test_set_img_pred)
                     fixed_test_set_img_pred = torch.from_numpy(fixed_test_set_img_pred)
-                    
+
                     img = torch.stack([fixed_test_set_img_true,fixed_test_set_img_pred],dim=1)
-                    img = rearrange(img,'b x c h w -> (b x) c h w')
+                    img = rearrange(img,'b x h w c -> (b x) c h w')
 
                     img = torchvision.utils.make_grid(img)
                     # img = img / 2 + 0.5     # unnormalize
