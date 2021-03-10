@@ -196,11 +196,11 @@ def train(args):
                             outputs = model(context, past_key_values=past)
                             output = outputs.logits
                             past = outputs.past_key_values
-                            token = torch.argmax(output[..., -1, :])
+                            token = torch.argmax(output[..., -1, :],dim=-1)
 
                             image_codes += [token.tolist()]
-                            context = token.unsqueeze(0) #check required ?
-                            print('context shape',context.shape)
+                            # context = token.unsqueeze(0) #check required ?
+                            # print('context shape',context.shape)
                             # gc.collect()
                         # image_codes = [max(0,i-50260) for i in image_codes]
                         # fixed_test_set_pred.append(image_codes)
