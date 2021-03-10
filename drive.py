@@ -81,12 +81,12 @@ class MyDrive(object):
             d,f = os.path.split(path)
             # check if file already exists and trash it
             if f in drive_files:
-                    drive_files[f].Trash()
+                    drive_files[f].Delete()
             elif f.startswith('events.out.tfevents'):
                 pat = '.'.join(f.split('.')[:-2])
                 for df in drive_files:
                     if df.startswith(pat):
-                        drive_files[df].Trash()
+                        drive_files[df].Delete()
 
             file = drive.CreateFile({'title': f, 'parents': [{'id': parent_id}]})
             file.SetContentFile(path)

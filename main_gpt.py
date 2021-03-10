@@ -232,10 +232,24 @@ def train(args):
             if it%args.save_every==(args.save_every-1):
                 # torch.save(model.state_dict(), weight_dalle)
                 model.save_pretrained(sess_dir)
+
                 try:
                     if args.drive_id:
+                        #split
+                        bname = 'gpt2ft_part'
+                        chunks = glob.glob(bname+'*')
+                        for c in chunks:
+                            os.remove(c)
+                        cmd='split -b 99m -d -a 1 %s %s'%(output_model_file,bname)
+                        chunks = glob.glob(bname+'*')
+                        chunks.append(output_config_file)
+
                         files = glob.glob(os.path.join(summary_dir,'*'))
+                        files+=chunks
                         upload_to_drive(files,args.drive_id)
+
+                        for c in chunks:
+                            os.remove(c)
                     # upload_to_drive(files+image_list,args.drive_id)
                     # image_list = []
                 except Exception as e:
