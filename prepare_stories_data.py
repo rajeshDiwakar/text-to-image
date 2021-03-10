@@ -239,7 +239,8 @@ if __name__=='__main__':
         elif args.dir:
             files = glob.glob(os.path.join(args.dir,'*.en.json'))
             logging.info('Found %d json files'%len(files))
-            for file in tqdm(files):
+            for count,file in enumerate(files):
+                print('%d/%d'%(count,len(files)))
                 fname = os.path.basename(file).replace('.en.json','')
                 outdir = os.path.join(args.output,fname)
                 json_path = os.path.join(outdir,'chunks.json')
