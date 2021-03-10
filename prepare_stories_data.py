@@ -126,7 +126,7 @@ def parse_ms(text):
         return int(text[:-2])
     raise ValueError
 
-def extract_frames(vid,chunks,outdir,encoder=None,write_image=True):
+def extract_frames(vid,chunks,outdir,encoder=None,write_image=True,batch_size=32):
 
     os.makedirs(outdir,exist_ok=True)
     # frames = [frame for c in chunks for frames in c['mframes'] for frame in frames]
@@ -138,7 +138,7 @@ def extract_frames(vid,chunks,outdir,encoder=None,write_image=True):
     frames.sort()
     cap = cv2.VideoCapture(vid)
     if not cap.isOpened(): raise ValueError('Unable to open file %s'%vid)
-
+    batch = []
     for frame in tqdm(frames,bar_format="{l_bar}%s{bar}%s{r_bar}" % (Fore.BLUE, Fore.RESET),desc='Extracting frames'):
         img_path = os.path.join(outdir,'%d.jpg'%frame)
         if os.path.isfile(img_path):
@@ -150,10 +150,21 @@ def extract_frames(vid,chunks,outdir,encoder=None,write_image=True):
             raise ValueError('Unexpected end of frames')
         # img_cv = cv2.resize(img_cv,(64,64))
         if encoder:
-            enc = encoder.encode(img_cv).tolist()[0]
-            img_embs[frame]=enc
+            if len(batch)>=batch_size:
+                encoded = encoder.encode([b[0] for b in batch]).tolist()
+                for (_,frame),codes in zip(batch,encoded):
+                    img_embs[frame] = codes
+                batch = []
+            else:
+                batch.append((img_cv,frame))
+            # enc = encoder.encode(img_cv).tolist()[0]
+            # img_embs[frame]=enc
         if write_image:
             cv2.imwrite(img_path,img_cv)
+    if encoder and len(batch):
+        encoded = encoder.encode([b[0] for b in batch]).tolist()
+        for (_,frame),codes in zip(batch,encoded):
+            img_embs[frame] = codes
 
     cap.release()
     return img_embs
@@ -174,6 +185,7 @@ if __name__=='__main__':
     parser.add_argument('--img_emb',default=0,choices= [0,64,128,256],type=int,help='dalle embedding for images. 0 for no embedding')
     parser.add_argument('--text_emb',required=True,choices=[0,1],type=int,help='weather to use text embedding or not')
     parser.add_argument('--write_image',required=True,choices=[0,1],type=int,help='weather to write image or not')
+    parser.add_argument('--batch_size',default=32,type=int,help='batch_size for image encoding')
     args = parser.parse_args()
     args.ss = parse_ms(args.ss)
     # global emb_cache
@@ -218,7 +230,7 @@ if __name__=='__main__':
                 with open(json_path,'w') as f:
                     json.dump(chunks,f,indent=args.indent)
                 vid = args.json.replace('.en.json','.mp4')
-                img_embs = extract_frames(vid,chunks,img_dir,encoder=DE,write_image=args.write_image)
+                img_embs = extract_frames(vid,chunks,img_dir,encoder=DE,write_image=args.write_image,batch_size=args.batch_size)
                 img_emb_path = os.path.join(outdir,'img_emb.json')
                 with open(img_emb_path,'w') as f:
                     json.dump(img_embs,f,indent=args.indent)
@@ -246,7 +258,7 @@ if __name__=='__main__':
                 with open(json_path,'w') as f:
                     json.dump(chunks,f,indent=args.indent)
                 vid = file.replace('.en.json','.mp4')
-                img_embs = extract_frames(vid,chunks,img_dir,encoder=DE,write_image=args.write_image)
+                img_embs = extract_frames(vid,chunks,img_dir,encoder=DE,write_image=args.write_image,batch_size=args.batch_size)
                 img_emb_path = os.path.join(outdir,'img_emb.json')
                 with open(img_emb_path,'w') as f:
                     json.dump(img_embs,f,indent=args.indent)

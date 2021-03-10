@@ -302,8 +302,8 @@ class GPTDataset(Dataset):
         # labels = [item[1] for item in batch]
         lengths = [len(s) for s in sequences]
         maxlen = max(lengths)
-        attention = [[1]*len(seq)+[0]*(maxlen-len(seq)) for seq in sequences]
-        sequences = [torch.cat( [seq,torch.empty(maxlen-len(seq)).fill_(pad_token_id)] ) for seq in sequences]
+        attention = [ [0]*(maxlen-len(seq))+[1]*len(seq) for seq in sequences]
+        sequences = [torch.cat( [torch.empty(maxlen-len(seq)).fill_(pad_token_id),seq] ) for seq in sequences] #left padding
         # labels = [torch.cat( [label,torch.empty(maxlen-len(label)).fill_(label[-1])] ) for label in labels]
         sequences = torch.stack(sequences,dim=0).long()
         attention = torch.tensor(attention)

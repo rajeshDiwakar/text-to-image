@@ -21,7 +21,7 @@ from dall_e import map_pixels, unmap_pixels, load_model
 # from IPython.display import display, display_markdown
 import torch.nn.functional as F
 import gc
-import numpy
+import numpy as np
 
 class Dalle(object):
     def __init__(self,target_image_size=256,proc_image_size=256,enc=None,dec=None,device='cpu'):
@@ -57,21 +57,25 @@ class Dalle(object):
 #     img = torch.unsqueeze(T.ToTensor()(img), 0)
 #     return map_pixels(img)
 
-    def preprocess(self,img):
-        s = min(img.size)
+    def preprocess(self,imgs):
+        s = min(imgs[0].size)
 
         if s < self.proc_image_size:
             raise ValueError(f'min dim for image {s} < {self.proc_image_size}')
 
         r = self.proc_image_size / s
-        s = (round(r * img.size[1]), round(r * img.size[0]))
-        img = TF.resize(img, s, interpolation=PIL.Image.LANCZOS)
-        img = TF.center_crop(img, output_size=2 * [self.proc_image_size])
-        if self.target_image_size != self.proc_image_size:
-            num_pad = int(self.target_image_size-self.proc_image_size)//2
-            img = TF.pad(img,(num_pad,num_pad,num_pad,num_pad),padding_mode='constant',fill=0)
-        img = torch.unsqueeze(T.ToTensor()(img), 0)
-        return map_pixels(img)
+        new_imgs = []
+        for img in imgs:
+            s = (round(r * img.size[1]), round(r * img.size[0]))
+            img = TF.resize(img, s, interpolation=PIL.Image.LANCZOS)
+            img = TF.center_crop(img, output_size=2 * [self.proc_image_size])
+            if self.target_image_size != self.proc_image_size:
+                num_pad = int(self.target_image_size-self.proc_image_size)//2
+                img = TF.pad(img,(num_pad,num_pad,num_pad,num_pad),padding_mode='constant',fill=0)
+                new_imgs.append(T.ToTensor()(img))
+        # img = torch.unsqueeze(T.ToTensor()(img), 0)
+        new_imgs = torch.stack(new_imgs,dim=0)
+        return map_pixels(new_imgs)
 
     # add batch size
     def encode(self,img):
@@ -82,9 +86,16 @@ class Dalle(object):
             raise Exception('Encoder not intialised')
 
         if type(img) == str:
-            img = PIL.Image.open(img)
-        elif type(img) == numpy.ndarray:
-            img = T.ToPILImage()(img)
+            img = [PIL.Image.open(img)]
+        elif type(img) == np.ndarray:
+            if len(img.shape)==3:
+                img = [img]
+
+            img = [T.ToPILImage()(img[i]) for i in range(len(img))]
+        else:
+            assert type(img)==list and type(img[0]) == np.ndarray
+            img = [T.ToPILImage()(img[i]) for i in range(len(img))]
+            
         x = self.preprocess(img) #[b c h w]
         x = x.to(self.device)
         with torch.no_grad():
@@ -111,7 +122,7 @@ class Dalle(object):
         '''
         if type(codes) == list:
             codes = torch.tensor(codes)
-        if type(codes) == numpy.ndarray:
+        if type(codes) == np.ndarray:
             codes = torch.from_numpy(codes)
 
         if len(codes.shape)==2:
@@ -143,7 +154,7 @@ class Dalle(object):
         elif n==8:
             ret = ret[:,32:-32,32:-32,:]
         del x_rec,x_stats
-        gc.collect()
+        # gc.collect()
         if ret.shape[0]==1:
             ret = ret[0]
         # x_rec = T.ToPILImage(mode='RGB')(x_rec[0])
@@ -169,11 +180,12 @@ if __name__ == '__main__':
 
     import cv2
     img = cv2.imread(img)
+    img = np.array([img,img])
     de = Dalle(enc=enc,dec=dec,proc_image_size=128)
-    # img_enc = de.encode(img)
+    img_enc = de.encode(img)
     # print(str(img_enc)[:200])
-    # print(img_enc.shape)
-
+    print(img_enc.shape)
+    sys.exit()
     img_enc = [5465, 3612, 5614, 2889, 5614, 2889, 2889, 2889, 2889, 2889, 2889, 2889, 3612, 5614, 2529, 5614, 5614, 2889, 3770, 2889, 2889, 2889, 2889, 2889, 2889, 3612, 3612, 3612, 3612, 3612, 3612, 2529, 2529, 2889, 4547, 2889, 2889, 2889, 2889, 2889, 6170, 2889, 6170, 6170, 6170, 6170, 6170, 6170, 2889, 2889, 2840, 2889, 2889, 2889, 5075, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 5971, 4187, 5236, 3769, 5971, 4449, 1899, 1899, 1899, 1899, 1899, 3430, 672, 672, 2022, 2022, 2022, 881, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     img_enc = [img_enc, img_enc]
     img_enc = torch.LongTensor(img_enc).reshape(-1,16,16)

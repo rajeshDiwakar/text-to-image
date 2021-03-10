@@ -129,8 +129,8 @@ def train(args):
     # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10*dataset_size,20*dataset_size], gamma=0.1)
     image_list = []
 
-    fixed_test_set = [test_dataset[i] for i in range(2)]
-    # fixed_test_set_padded = dataset.collate_fn(fixed_test_set)
+    fixed_test_set = [test_dataset[i] for i in range(16)]
+    fixed_test_set_padded = dataset.collate_fn(fixed_test_set)[0] #label is empty
     fixed_test_set_img_true = [s[0][-256:].tolist() for s in fixed_test_set ]
     fixed_test_set_img_true = torch.LongTensor(fixed_test_set_img_true).reshape(-1,16,16)-50260
     fixed_test_set_img_true = DE.decode(fixed_test_set_img_true)
@@ -163,17 +163,7 @@ def train(args):
             sys.stdout.write('\r[%s] %6d/%6d: loss: %f'%(time.asctime(),it,args.epochs*dataset_size,loss.item()))
             running_loss += loss.item()
             writer.add_scalar('training loss',loss.item(),epoch * dataset_size+ it)
-            if it%args.save_every==(args.save_every-1):
-                # torch.save(model.state_dict(), weight_dalle)
-                model.save_pretrained(sess_dir)
-                try:
-                    if args.drive_id:
-                        files = glob.glob(os.path.join(summary_dir,'*'))
-                        upload_to_drive(files,args.drive_id)
-                    # upload_to_drive(files+image_list,args.drive_id)
-                    # image_list = []
-                except Exception as e:
-                    print('Error while uploading to drive\n',str(e))
+
 
 
             if it % args.test_every == (args.test_every-1):
@@ -195,10 +185,13 @@ def train(args):
                     fixed_test_set_pred = []#model(**fixed_test_set_padded)
 
                     num_image_codes = 256
-                    for b in range(len(fixed_test_set)):
+                    fixed_test_set_padded['input_ids'] = fixed_test_set_padded['input_ids'].to(device)
+                    # for b in range(len(fixed_test_set)):
+                    if 1:
                         past = None
                         image_codes = []
-                        context = fixed_test_set[b][0].to(device)
+                        # context = fixed_test_set[b][0].to(device)
+                        context = fixed_test_set_padded['input_ids']
                         for i in range(num_image_codes):
                             outputs = model(context, past_key_values=past)
                             output = outputs.logits
@@ -206,10 +199,13 @@ def train(args):
                             token = torch.argmax(output[..., -1, :])
 
                             image_codes += [token.tolist()]
-                            context = token.unsqueeze(0)
-                            gc.collect()
-                        image_codes = [max(0,i-50260) for i in image_codes]
-                        fixed_test_set_pred.append(image_codes)
+                            context = token.unsqueeze(0) #check required ?
+                            print('context shape',context.shape)
+                            # gc.collect()
+                        # image_codes = [max(0,i-50260) for i in image_codes]
+                        # fixed_test_set_pred.append(image_codes)
+                        image_codes = list(zip(*image_codes))
+                        fixed_test_set_pred = [[max(0,i-50260) for i in image_code] for image_code in image_codes]
 
 
                     fixed_test_set_img_pred = torch.LongTensor(fixed_test_set_pred).reshape(-1,16,16)
@@ -232,6 +228,18 @@ def train(args):
                     writer.add_figure('generated images',
                             fig,
                             global_step=epoch * dataset_size + it)
+
+            if it%args.save_every==(args.save_every-1):
+                # torch.save(model.state_dict(), weight_dalle)
+                model.save_pretrained(sess_dir)
+                try:
+                    if args.drive_id:
+                        files = glob.glob(os.path.join(summary_dir,'*'))
+                        upload_to_drive(files,args.drive_id)
+                    # upload_to_drive(files+image_list,args.drive_id)
+                    # image_list = []
+                except Exception as e:
+                    print('Error while uploading to drive\n',str(e))
 
         sys.stdout.write('\n[%s]Epoch:%d loss: %f'%(' '.join(time.asctime().split(' ')[1:-1]),epoch,running_loss/dataset_size)) # some samples are going for testing??
 

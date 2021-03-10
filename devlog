@@ -36,4 +36,22 @@ model.train()
 fix embedding shape ?
 log separate loss for image codes
 
-fix str/int error image image_emb
+
+-----------------
+faster data generatino
+training on 50 videos
+extractingn only single frame
+adding text/context/image
+add tpu
+----------------
+using larger cntext
+training on caption dataset
+model saving -- sess dir  /restore --weight_gpt
+------
+uniq characters+items -> complete information
+better loss function for image part
+faster image generation - x?
+moving testing before saving - x
+axial position embedding - x
+left padding -x
+batch encoding in data generation - x
