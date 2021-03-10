@@ -220,7 +220,7 @@ class GPTDataset(Dataset):
                     text = cap['context']
                     if not len(cap['mframes']):continue
                     # text_ids = [self.vocab[tok.text] for tok in nlp.tokenizer(text)]
-                    self.meta.append({'vid':vid,"context":' '.join(cap['context'].split(' ')[-context_size:]),'text':cap['text'],'frames':[cap['mframes'][-1][-1]]})
+                    self.meta.append({'vid':vid,"context":' '.join(cap['context'].split(' ')[-context_size:]),'text':cap['text'],'frames':cap['mframes'][-1]})
             with open(p+'/img_emb.json') as f:
                 self.image_embs[vid] = json.load(f)
 
@@ -255,12 +255,14 @@ class GPTDataset(Dataset):
         images = [] # image embeddings
         meta = self.meta[idx]
         vid = meta['vid']
-        for frame in meta['frames']:
-            images.append(self.image_embs[vid][str(frame)]) # [16,16]-list
-            # img_name = os.path.join(self.root_dir,vid,'images',
-            #                         '%d.jpg'%frame)
-            # image = io.imread(img_name)
-            # images.append(image)
+        images.append(self.image_embs[vid][str(random.sample(meta['frames'],1)[0])]) # [16,16]-list
+        
+        # for frame in meta['frames']:
+        #     images.append(self.image_embs[vid][str(frame)]) # [16,16]-list
+        #     # img_name = os.path.join(self.root_dir,vid,'images',
+        #     #                         '%d.jpg'%frame)
+        #     # image = io.imread(img_name)
+        #     # images.append(image)
 
         # if len(images)<3:
         #     images = images+[images[-1] for _ in range(5-len(images))]
