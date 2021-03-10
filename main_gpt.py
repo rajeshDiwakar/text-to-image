@@ -199,7 +199,7 @@ def train(args):
                             token = torch.argmax(output[..., -1, :],dim=-1)
 
                             image_codes += [token.tolist()]
-                            # context = token.unsqueeze(0) #check required ?
+                            context = token.unsqueeze(1) #check required ?
                             # print('context shape',context.shape)
                             # gc.collect()
                         # image_codes = [max(0,i-50260) for i in image_codes]
