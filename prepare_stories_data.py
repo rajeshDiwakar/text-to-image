@@ -152,9 +152,10 @@ def extract_frames(vid,chunks,outdir,encoder=None,write_image=True,batch_size=32
         if encoder:
             if len(batch)>=batch_size:
                 encoded = encoder.encode([b[0] for b in batch]).tolist()
-                for (_,frame),codes in zip(batch,encoded):
-                    img_embs[frame] = codes
-                batch = []
+                for (_,f),codes in zip(batch,encoded):
+                    img_embs[f] = codes
+                batch = [(img_cv,frame)]
+
             else:
                 batch.append((img_cv,frame))
             # enc = encoder.encode(img_cv).tolist()[0]

@@ -24,7 +24,7 @@ import gc
 import numpy as np
 
 class Dalle(object):
-    def __init__(self,target_image_size=256,proc_image_size=256,enc=None,dec=None,device='cpu'):
+    def __init__(self,target_image_size=256,proc_image_size=256,enc=None,dec=None,device='cpu',lowmem=False):
         assert proc_image_size in [128,256,64]
         self.target_image_size = target_image_size
         self.proc_image_size = proc_image_size
@@ -38,6 +38,7 @@ class Dalle(object):
         if dec:
             self.dec = load_model(dec, dev).to(device)
             # self.dec.to(self.device)
+        self.lowmem = lowmem
 
 # def download_image(url):
 #     resp = requests.get(url)
@@ -95,7 +96,7 @@ class Dalle(object):
         else:
             assert type(img)==list and type(img[0]) == np.ndarray
             img = [T.ToPILImage()(img[i]) for i in range(len(img))]
-            
+
         x = self.preprocess(img) #[b c h w]
         x = x.to(self.device)
         with torch.no_grad():
@@ -104,7 +105,7 @@ class Dalle(object):
 
         if self.target_image_size == self.proc_image_size:
             del x,z_logits
-            gc.collect()
+            if self.lowmem: gc.collect()
             return z.numpy()
 
         # z_ = torch.zeros_like(z)
@@ -113,7 +114,7 @@ class Dalle(object):
         # z_[:,num_pad:-num_pad,num_pad:-num_pad] = z[:,num_pad:-num_pad,num_pad:-num_pad]
         ret = z[:,num_pad:-num_pad,num_pad:-num_pad].numpy()
         del x,z_logits, z
-        gc.collect()
+        if self.lowmem: gc.collect()
         return ret
 
     def decode(self,codes,pad=4522,ret_pil=False):
@@ -154,7 +155,7 @@ class Dalle(object):
         elif n==8:
             ret = ret[:,32:-32,32:-32,:]
         del x_rec,x_stats
-        # gc.collect()
+        if self.lowmem: gc.collect()
         if ret.shape[0]==1:
             ret = ret[0]
         # x_rec = T.ToPILImage(mode='RGB')(x_rec[0])
