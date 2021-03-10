@@ -77,7 +77,9 @@ class MyDrive(object):
         drive_files = drive.ListFile({'q': "'%s' in parents and trashed=false"%parent_id}).GetList()
         drive_files = {f['title']:f for f in drive_files}
         for path in list_files:
-            if not os.path.isfile(path): continue
+            if not os.path.isfile(path):
+                print('%s does not exist'%path)
+                continue
             d,f = os.path.split(path)
             # check if file already exists and trash it
             if f in drive_files:

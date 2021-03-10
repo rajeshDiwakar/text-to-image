@@ -241,15 +241,16 @@ def train(args):
                         for c in chunks:
                             os.remove(c)
                         cmd='split -b 99m -d -a 1 %s %s'%(output_model_file,bname)
+                        print(cmd)
                         chunks = glob.glob(bname+'*')
                         chunks.append(output_config_file)
-
+                        print(chunks)
                         files = glob.glob(os.path.join(summary_dir,'*'))
                         files+=chunks
                         upload_to_drive(files,args.drive_id)
 
-                        for c in chunks:
-                            os.remove(c)
+                        # for c in chunks:
+                        #     os.remove(c)
                     # upload_to_drive(files+image_list,args.drive_id)
                     # image_list = []
                 except Exception as e:
