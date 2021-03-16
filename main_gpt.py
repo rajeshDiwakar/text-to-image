@@ -162,7 +162,7 @@ def train(args):
             optimizer.step()
             sys.stdout.write('\r[%s] %6d/%6d: loss: %f'%(time.asctime(),it,args.epochs*dataset_size,loss.item()))
             running_loss += loss.item()
-            writer.add_scalar('training loss',loss.item(),epoch * dataset_size+ it)
+            writer.add_scalar('training loss',loss.item(), it)
 
 
 
@@ -179,7 +179,7 @@ def train(args):
                         running_loss += outputs.loss
                         if i>9:break
                     running_loss = running_loss/i if i>0 else 0
-                    writer.add_scalar('validation loss',running_loss,epoch * dataset_size+ it)
+                    writer.add_scalar('validation loss',running_loss, it)
 
                     # testing on fixed set
                     fixed_test_set_pred = []#model(**fixed_test_set_padded)
@@ -227,7 +227,7 @@ def train(args):
                     # image_list.append(impath)
                     writer.add_figure('generated images',
                             fig,
-                            global_step=epoch * dataset_size + it)
+                            global_step=it)
 
             if it%args.save_every==(args.save_every-1):
                 # torch.save(model.state_dict(), weight_dalle)
