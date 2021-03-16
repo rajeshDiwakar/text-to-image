@@ -14,6 +14,7 @@ import torch, torchvision
 # from dalle_pytorch import DiscreteVAE, DALLE
 import matplotlib.pyplot as plt
 import numpy as np
+import math
 
 from torchvision import transforms, datasets
 import torch.nn as nn
@@ -56,6 +57,15 @@ data_transform = transforms.Compose([
         transforms.Normalize(mean=[.5, 0.5, 0.5],
                              std=[0.5, 0.5, 0.5])
     ])
+
+def top_k(logits, thres = 0.5):
+    num_logits = logits.shape[-1]
+    k = max(int((1 - thres) * num_logits), 1)
+    val, ind = torch.topk(logits, k)
+    probs = torch.full_like(logits, float('-inf'))
+#     print(probs.shape)
+    probs.scatter_(-1, ind, val)
+    return probs
 
 def train(args):
 
@@ -131,8 +141,9 @@ def train(args):
 
     fixed_test_set = [test_dataset[i] for i in range(16)]
     fixed_test_set_padded = GPTDataset.collate_fn(fixed_test_set)[0] #label is empty
-    fixed_test_set_img_true = [s[0][-256:].tolist() for s in fixed_test_set ]
-    fixed_test_set_img_true = torch.LongTensor(fixed_test_set_img_true).reshape(-1,16,16)-50260
+    fixed_test_set_img_true = [s[0][-args.num_image_codes:].tolist() for s in fixed_test_set ]
+    l=int(math.sqrt(16))
+    fixed_test_set_img_true = torch.LongTensor(fixed_test_set_img_true).reshape(-1,l,l)-50260
     fixed_test_set_img_true = DE.decode(fixed_test_set_img_true)
     fixed_test_set_img_true = torch.from_numpy(fixed_test_set_img_true)
     for epoch in range(args.epochs):
@@ -184,31 +195,39 @@ def train(args):
                     # testing on fixed set
                     fixed_test_set_pred = []#model(**fixed_test_set_padded)
 
-                    num_image_codes = 256
+                    num_image_codes = args.num_image_codes
                     fixed_test_set_padded['input_ids'] = fixed_test_set_padded['input_ids'].to(device)
                     # for b in range(len(fixed_test_set)):
                     if 1:
                         past = None
+                        temperature = 0.8
                         image_codes = []
                         # context = fixed_test_set[b][0].to(device)
                         context = fixed_test_set_padded['input_ids']
                         for i in range(num_image_codes):
                             outputs = model(context, past_key_values=past)
-                            output = outputs.logits
+                            output = outputs.logits[:,-1,:]#outputs.logits
                             past = outputs.past_key_values
-                            token = torch.argmax(output[..., -1, :],dim=-1)
-
-                            image_codes += [token.tolist()]
-                            context = token.unsqueeze(1) #check required ?
+                            # token = torch.argmax(output[..., -1, :],dim=-1)
+                            #
+                            # image_codes += [token.tolist()]
+                            # context = token.unsqueeze(1) #check required ?
                             # print('context shape',context.shape)
                             # gc.collect()
+
+                            filtered_logits = top_k(output, thres = 0.5)
+                            probs = F.softmax(filtered_logits / temperature, dim = -1)
+                            token = torch.multinomial(probs, 1)#torch.multinomial(probs, 1)[-1]
+                            image_codes += [[t[0] for t in token.tolist()]] #[[57156], [53274]]
+                            context = token
+
                         # image_codes = [max(0,i-50260) for i in image_codes]
                         # fixed_test_set_pred.append(image_codes)
                         image_codes = list(zip(*image_codes))
                         fixed_test_set_pred = [[max(0,i-50260) for i in image_code] for image_code in image_codes]
 
-
-                    fixed_test_set_img_pred = torch.LongTensor(fixed_test_set_pred).reshape(-1,16,16)
+                    l = int(math.sqrt(args.num_image_codes))
+                    fixed_test_set_img_pred = torch.LongTensor(fixed_test_set_pred).reshape(-1,l,l)
                     fixed_test_set_img_pred = DE.decode(fixed_test_set_img_pred)
                     fixed_test_set_img_pred = torch.from_numpy(fixed_test_set_img_pred)
 
@@ -381,6 +400,7 @@ if __name__ =='__main__':
     parser.add_argument('--grad_check',default=False,action='store_true')
     parser.add_argument('--context_size',default=10,type=int)
     parser.add_argument('--gpt_n_ctx',default=512,type=int)
+    parser.add_argument('--num_image_codes',default=256,choices=[64,256,1024],type=int)
 
     args = parser.parse_args()
     if not args.test and not args.train:
