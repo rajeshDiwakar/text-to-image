@@ -220,7 +220,9 @@ class GPTDataset(Dataset):
                     text = cap['context']
                     if not len(cap['mframes']):continue
                     # text_ids = [self.vocab[tok.text] for tok in nlp.tokenizer(text)]
-                    self.meta.append({'vid':vid,"context":' '.join(cap['context'].split(' ')[-context_size:]),'text':cap['text'],'frames':[cap['mframes'][-1][-1]]})
+                    # self.meta.append({'vid':vid,"context":' '.join(cap['context'].split(' ')[-context_size:]),'text':cap['text'],'frames':[cap['mframes'][-1][-1]]})
+                    self.meta.append({'vid':vid,"context":' '.join(cap['context'].split(' ')[-context_size:]),'text':cap['text'],'frames':cap['frames']})
+
             with open(p+'/img_emb.json') as f:
                 self.image_embs[vid] = json.load(f)
 
@@ -233,6 +235,7 @@ class GPTDataset(Dataset):
         # self.text_token_id = self.context_token_id+1
         # self.image_token_id = self.context_token_id+2
         self.tokenizer.add_tokens(['[context]','[text]','[image]'])
+        self.added_vocab = self.tokenizer.get_added_vocab()
         self.img_vocab_offset = len(self.tokenizer)
         # self.tokenizer.add_tokens(['img%d'%i for i in range(self.img_vocab_size)])
         self.vocab_size = len(self.tokenizer)+8192
@@ -270,15 +273,18 @@ class GPTDataset(Dataset):
         # print(images[0])
         # image_codes=['img%d'%i for im in images for row in im for i in row]
         # image_codes=['img%d'%i for i in range(64)]
-
+        image_count = len(images)
         text =' '.join(['[context]', meta['context'].strip(), '[text]', meta['text'].strip(),'[image]']) #+' '.join(image_codes) # rajesh check. we can remove spaces for images
         text_codes = self.tokenizer(text,return_tensors='pt')['input_ids'][0] #shape: [1,n]
         # print(text_codes)
-        image_codes = torch.LongTensor([self.img_vocab_offset+code for image in images for row in image for code in row])
+        # image_codes = torch.LongTensor([self.img_vocab_offset+code for image in images for row in image for code in row])
+        image_codes = [[self.img_vocab_offset+code for row in image for code in row] for image in images ]
+        image_codes = [im+[self.added_vocab['[image]']] for im in image_codes[:-1]] + image_codes[-1:]
+        image_codes = torch.LongTensor([c for im in image_codes for c in im])
         # print('max/vocab_size:',max([self.img_vocab_offset+code for image in images for row in image for code in row]),len(self.tokenizer))
         text_codes = torch.cat([text_codes,image_codes])
         # seq,label = text_codes[:-1], text_codes[1:]
-        seq,label = text_codes, text_codes
+        seq,label = text_codes, image_count
 
         # print('seq,label',len(seq),len(label))
 
@@ -299,7 +305,7 @@ class GPTDataset(Dataset):
         # tokenizer = GPTDataset.tokenizer
 
         sequences = [item[0] for item in batch]
-        # labels = [item[1] for item in batch]
+        labels = [item[1] for item in batch] #image count
         lengths = [len(s) for s in sequences]
         maxlen = max(lengths)
         attention = [ [0]*(maxlen-len(seq))+[1]*len(seq) for seq in sequences]
@@ -307,7 +313,7 @@ class GPTDataset(Dataset):
         # labels = [torch.cat( [label,torch.empty(maxlen-len(label)).fill_(label[-1])] ) for label in labels]
         sequences = torch.stack(sequences,dim=0).long()
         attention = torch.tensor(attention)
-        labels = torch.empty(1,1)#torch.stack(labels).long()
+        labels = torch.stack(labels).long()
 
         return ({'input_ids':sequences,'attention_mask':attention}, labels)
 

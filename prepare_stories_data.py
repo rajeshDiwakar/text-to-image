@@ -132,7 +132,9 @@ def extract_frames(vid,chunks,outdir,encoder=None,write_image=True,batch_size=32
     # frames = [frame for c in chunks for frames in c['mframes'] for frame in frames]
     # frames =[frame for c in chunks for frame in c['frames']]
     # print(chunks)
-    frames =[mframe[-1] for c in chunks for mframe in c['mframes']]
+    # frames =[mframe[-1] for c in chunks for mframe in c['mframes']]
+    frames =[frame for c in chunks for frame in c['frames']] # for 64x64+ video test
+
     img_embs = {}
     frames =list(set(frames))
     frames.sort()

@@ -119,9 +119,10 @@ def train(args):
     # dataset.tokenizer.save_pretrained(output_dir)
     # sys.exit(0)
 
+    l=int(math.sqrt(args.num_image_codes))
     enc = 'dall_e/data/encoder.pkl'
     dec = 'dall_e/data/decoder.pkl'
-    DE = Dalle(enc=enc,dec=dec,proc_image_size=128)
+    DE = Dalle(enc=enc,dec=dec,proc_image_size=l*8)
     DE.device = device
     DE.dec = DE.dec.to(device)
 
@@ -140,9 +141,9 @@ def train(args):
     image_list = []
 
     fixed_test_set = [test_dataset[i] for i in range(16)]
-    fixed_test_set_padded = GPTDataset.collate_fn(fixed_test_set)[0] #label is empty
-    fixed_test_set_img_true = [s[0][-args.num_image_codes:].tolist() for s in fixed_test_set ]
-    l=int(math.sqrt(16))
+    fixed_test_set_padded, fixed_test_set_img_length = GPTDataset.collate_fn(fixed_test_set) #label is empty
+    fixed_test_set_img_true = [s[0][-(s[1]*(args.num_image_codes+1)-1):].tolist() for s in fixed_test_set ]
+    fixed_test_set_img_true = [[c for i,c in enumerate(im) if i%(args.num_image_codes+1)] for im in fixed_test_set_img_true]
     fixed_test_set_img_true = torch.LongTensor(fixed_test_set_img_true).reshape(-1,l,l)-50260
     fixed_test_set_img_true = DE.decode(fixed_test_set_img_true)
     fixed_test_set_img_true = torch.from_numpy(fixed_test_set_img_true)
@@ -202,9 +203,10 @@ def train(args):
                         past = None
                         temperature = 0.8
                         image_codes = []
+                        TIME= 10  # num image per video
                         # context = fixed_test_set[b][0].to(device)
                         context = fixed_test_set_padded['input_ids']
-                        for i in range(num_image_codes):
+                        for i in range((num_image_codes+1)*TIME-1):
                             outputs = model(context, past_key_values=past)
                             output = outputs.logits[:,-1,:]#outputs.logits
                             past = outputs.past_key_values
@@ -218,7 +220,9 @@ def train(args):
                             filtered_logits = top_k(output, thres = 0.5)
                             probs = F.softmax(filtered_logits / temperature, dim = -1)
                             token = torch.multinomial(probs, 1)#torch.multinomial(probs, 1)[-1]
-                            image_codes += [[t[0] for t in token.tolist()]] #[[57156], [53274]]
+                            # ignore token for index of [image] token
+                            if i%(num_image_codes+1):
+                                image_codes += [[t[0] for t in token.tolist()]] #[[57156], [53274]]
                             context = token
 
                         # image_codes = [max(0,i-50260) for i in image_codes]
@@ -230,23 +234,44 @@ def train(args):
                     fixed_test_set_img_pred = torch.LongTensor(fixed_test_set_pred).reshape(-1,l,l)
                     fixed_test_set_img_pred = DE.decode(fixed_test_set_img_pred)
                     fixed_test_set_img_pred = torch.from_numpy(fixed_test_set_img_pred)
+                    # image mode:
+                    if False:
+                        img = torch.stack([fixed_test_set_img_true,fixed_test_set_img_pred],dim=1)
+                        img = rearrange(img,'b x h w c -> (b x) c h w')
 
-                    img = torch.stack([fixed_test_set_img_true,fixed_test_set_img_pred],dim=1)
-                    img = rearrange(img,'b x h w c -> (b x) c h w')
+                        img = torchvision.utils.make_grid(img)
+                        # img = img / 2 + 0.5     # unnormalize
+                        npimg = img.cpu().numpy()
+                        # print(str(npimg.shape))
+                        # writer.add_image(npimg,running_loss,epoch * dataset_size+ it)
+                        fig = plt.figure(figsize=(12,9))
+                        plt.imshow(np.transpose(npimg, (1, 2, 0)))
+                        # impath = os.path.join(output_image_dir,'iter-%d_img-%d.jpg'%(epoch*dataset_size+it,i))
+                        # plt.savefig( impath )
+                        # image_list.append(impath)
+                        writer.add_figure('generated images',
+                                fig,
+                                global_step=it)
+                    # video mode:
+                    else:
+                        images = fixed_test_set_img_true
+                        images_pred = fixed_test_set_img_pred
 
-                    img = torchvision.utils.make_grid(img)
-                    # img = img / 2 + 0.5     # unnormalize
-                    npimg = img.cpu().numpy()
-                    # print(str(npimg.shape))
-                    # writer.add_image(npimg,running_loss,epoch * dataset_size+ it)
-                    fig = plt.figure(figsize=(12,9))
-                    plt.imshow(np.transpose(npimg, (1, 2, 0)))
-                    # impath = os.path.join(output_image_dir,'iter-%d_img-%d.jpg'%(epoch*dataset_size+it,i))
-                    # plt.savefig( impath )
-                    # image_list.append(impath)
-                    writer.add_figure('generated images',
-                            fig,
-                            global_step=it)
+                        images = rearrange(images,'b t h w c -> t b c h w',t=TIME)
+                        images_pred = rearrange(images_pred,'b t h w c -> t b c h w',t=TIME)
+                        images = torch.stack([images,images_pred],dim=2)
+                        images = rearrange(images,'t b x c h w -> t (b x) c h w',t=TIME)
+                        images = torch.stack([torchvision.utils.make_grid(torch.squeeze(images[ti])) for ti in range(TIME)])
+
+                        img = torch.unsqueeze(images,0)
+                        img = torch.clamp(img*255,min=0,max=255)     # unnormalize
+                        npimg = img.cpu().numpy()
+                        npimg = npimg.astype(np.uint8)
+
+                        writer.add_video('generated images',
+                                npimg,
+                                global_step= it)
+
 
             if it%args.save_every==(args.save_every-1):
                 # torch.save(model.state_dict(), weight_dalle)
