@@ -98,7 +98,7 @@ class MyDrive(object):
     def _upload_to_drive(self,list_files,parent_path):
         # global drive
         drive = self.authorize_drive()
-        parent_id = self.get_parent_id(drive,parent_path)
+        parent_id =parent_path #self.get_parent_id(drive,parent_path)
         drive_files = drive.ListFile({'q': "'%s' in parents and trashed=false"%parent_id}).GetList()
         drive_files = {f['title']:f for f in drive_files}
         for path in list_files:
