@@ -218,7 +218,7 @@ class GPTDataset(Dataset):
                 caption = json.load(f)
                 for cap in caption:
                     text = cap['context']
-                    if not len(cap['mframes']):continue
+                    # if not len(cap['mframes']):continue
                     # text_ids = [self.vocab[tok.text] for tok in nlp.tokenizer(text)]
                     # self.meta.append({'vid':vid,"context":' '.join(cap['context'].split(' ')[-context_size:]),'text':cap['text'],'frames':[cap['mframes'][-1][-1]]})
                     self.meta.append({'vid':vid,"context":' '.join(cap['context'].split(' ')[-context_size:]),'text':cap['text'],'frames':cap['frames']})
