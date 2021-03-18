@@ -94,7 +94,7 @@ def train(args):
     assert len(train_loader)>0, 'no image found in data dir'
 
     l=int(math.sqrt(args.num_image_codes))
-    fixed_test_set = [test_dataset[i] for i in range(2)]
+    fixed_test_set = [test_dataset[i] for i in range(16)]
     fixed_test_set_padded, fixed_test_set_img_length = GPTDataset.collate_fn(fixed_test_set) #label is empty
     fixed_test_set_img_true = [s[0][-(s[1]*(args.num_image_codes+1)-1):].tolist() for s in fixed_test_set ]
     # fixed_test_set_img_true = [[c for i,c in enumerate(im) if (1+i)%(args.num_image_codes+1)] for im in fixed_test_set_img_true]
