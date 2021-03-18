@@ -70,6 +70,7 @@ class MyDrive(object):
 #             raise ValueError('No folders match that specified folder name')
     def get_parent_id(self,drive,parent_path):
         parent_path = parent_path.strip('/')
+        parent_id = None
         parent_id =  self.cached_ids.get(parent_path)
         if parent_id is not None:
             return parent_id
