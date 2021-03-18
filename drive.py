@@ -70,7 +70,7 @@ class MyDrive(object):
 #             raise ValueError('No folders match that specified folder name')
     def get_parent_id(self,drive,parent_path):
         parent_path = parent_path.strip('/')
-        parent_id =  self.cached_ids.get(parent_id)
+        parent_id =  self.cached_ids.get(parent_path)
         if parent_id is not None:
             return parent_id
 
@@ -122,5 +122,7 @@ class MyDrive(object):
 if __name__=='__main__':
     import sys
     print('uploading to drive')
-    upload_to_drive([sys.argv[0]],parent_id)
+    mdrive = MyDrive()
+    drive_parent_id='15KEW4Oqi_5xuaVI97YMuLVhXnpmgrE3A'
+    mdrive.upload_to_drive([sys.argv[0]],drive_parent_id)
     print('done')
