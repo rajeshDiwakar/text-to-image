@@ -221,7 +221,7 @@ class GPTDataset(Dataset):
                     # if not len(cap['mframes']):continue
                     # text_ids = [self.vocab[tok.text] for tok in nlp.tokenizer(text)]
                     # self.meta.append({'vid':vid,"context":' '.join(cap['context'].split(' ')[-context_size:]),'text':cap['text'],'frames':[cap['mframes'][-1][-1]]})
-                    self.meta.append({'vid':vid,"context":' '.join(cap['context'].split(' ')[-context_size:]),'text':cap['text'],'frames':cap['frames']})
+                    self.meta.append({'vid':vid,"context":' '.join(cap['context'].split(' ')[-context_size:]),'text':cap['text'],'frames':cap['frames'][-4:]})
 
             with open(p+'/img_emb.json') as f:
                 self.image_embs[vid] = json.load(f)
