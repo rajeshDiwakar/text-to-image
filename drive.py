@@ -68,32 +68,33 @@ class MyDrive(object):
 #             raise ValueError('There are multiple folders with that specified folder name')
 #         elif len(file_list) == 0:
 #             raise ValueError('No folders match that specified folder name')
-    def get_parent_id(self,drive,parent_path):
-        parent_path = parent_path.strip('/')
-        global parent_id
-        parent_id =  self.cached_ids.get(parent_path)
-        if parent_id is not None:
-            return parent_id
 
-        parent_path = parent_path.split('/')
-        if len(parent_path) == 1:
-            self.cached_ids[parent_path[0]] = parent_path[0]
-            return parent_path[0]
-
-        drive_folders = drive.ListFile({"q": "'%s' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"%parent_path[0]}).GetList()
-        drive_folders = {f['title']:f for f in drive_folders}
-
-        parent_id, folder_name = parent_path
-        if folder_name in drive_folders:
-            self.cached_ids['/'.join(parent_path)] = drive_folders[folder_name]['id']
-            return drive_folders[folder_name]['id']
-
-        parent_id, folder_name = parent_path
-        file = drive.CreateFile({'title': folder_name, 'parents': [{'id': parent_id}], 'mimeType':'application/vnd.google-apps.folder'})
-        # file.SetContentFile(path)
-        file.Upload()
-        self.cached_ids['/'.join(parent_path)] = file['id']
-        return file['id']
+    # def get_parent_id(self,drive,parent_path):
+    #     parent_path = parent_path.strip('/')
+    #     global parent_id
+    #     parent_id =  self.cached_ids.get(parent_path)
+    #     if parent_id is not None:
+    #         return parent_id
+    #
+    #     parent_path = parent_path.split('/')
+    #     if len(parent_path) == 1:
+    #         self.cached_ids[parent_path[0]] = parent_path[0]
+    #         return parent_path[0]
+    #
+    #     drive_folders = drive.ListFile({"q": "'%s' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"%parent_path[0]}).GetList()
+    #     drive_folders = {f['title']:f for f in drive_folders}
+    #
+    #     parent_id, folder_name = parent_path
+    #     if folder_name in drive_folders:
+    #         self.cached_ids['/'.join(parent_path)] = drive_folders[folder_name]['id']
+    #         return drive_folders[folder_name]['id']
+    #
+    #     parent_id, folder_name = parent_path
+    #     file = drive.CreateFile({'title': folder_name, 'parents': [{'id': parent_id}], 'mimeType':'application/vnd.google-apps.folder'})
+    #     # file.SetContentFile(path)
+    #     file.Upload()
+    #     self.cached_ids['/'.join(parent_path)] = file['id']
+    #     return file['id']
 
     def _upload_to_drive(self,list_files,parent_path):
         # global drive
