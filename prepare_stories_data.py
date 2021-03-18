@@ -102,7 +102,7 @@ def chunk_caption(caption,win_size=8,hop_length=5,context_size=30,mode='word',fp
             # print(start*fps,end*fps,sr)
             # frames =[x for x in range(int(start*fps/1000.),int(end*fps/1000.)) if x%sr==0] # will work only for lesser fps(subsampling) #check
             frames =[x//1000 for x in range(int(start*fps),int(end*fps)) if x%sr==0] # will work only for lesser fps(subsampling) #check
-            print('frames: ',len(frames))
+            # print('frames: ',len(frames))
             # for the duration of text there will be many frames.
             # We can sample a few continuous frames at different time in this duration and each such group can represent this text
 
