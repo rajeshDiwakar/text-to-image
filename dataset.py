@@ -304,7 +304,7 @@ class GPTDataset(Dataset):
         pad_token_id = 0 #anything GPTDataset.pad_token_id
         # tokenizer = GPTDataset.tokenizer
 
-        sequences = [item[0] for item in batch]
+        sequences = [item[0][-1024:] for item in batch]
         labels = [item[1] for item in batch] #image count
         lengths = [len(s) for s in sequences]
         maxlen = max(lengths)

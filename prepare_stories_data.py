@@ -8,7 +8,7 @@ python prepare_stories_data.py --ss 10s --overwrite --context 60 -j '/home/rajes
                     --write_image 0 --text_emb 0 --img_emb 128
 
 python prepare_stories_data.py --ss 700s --overwrite --context 30 -j '/home/rajesh/work/data/storiesgan/data/vids/7IoF9IrZnXU.en.json' \
---write_image 0 --text_emb 0 --img_emb 128
+--write_image 0 --text_emb 0 --img_emb 128 --batch_size 2 --sr 1
 '''
 
 '''
@@ -55,16 +55,20 @@ def get_text_embedding(texts):
         texts = [texts]
     return BC.encode(texts)
 
-def chunk_caption(caption,win_size=8,hop_length=5,context_size=30,mode='word',fps=25,frame_seq_size=3,frame_hop_len=5,ss=0):
+def chunk_caption(caption,win_size=8,hop_length=5,context_size=30,mode='word',fps=25,sr=2,frame_seq_size=3,frame_hop_len=5,ss=0):
     if not len(caption): return []
     chunks = []
     global emb_cache
     if mode =='word':
         # words =[i for cap in caption for i in cap['words']]
+        # input sr is in fps. convert it to numbers
+        sr = int(1000*fps/sr)
+        # total_duration = str2ms(caption[-1]['end']) - str2ms(caption[0]['start']) if len(caption) else 0
+        # all_frames = [i for i in range(int(total_duration*fps/1000.)) if i%sr==0]
         words = []
         for cap in caption:
             for w in cap['words']:
-                if re.match('\[.+\]',w['text']):
+                if re.match('\[.+?\]',w['text']):
                     logging.debug('discarding: %s'%w['text'])
                     continue
                 words.append(w)
@@ -94,14 +98,20 @@ def chunk_caption(caption,win_size=8,hop_length=5,context_size=30,mode='word',fp
             emb_cache[text] = embedding_text
             update_cache = True
 
-            frames =list(range(int(start*fps/1000.),int(end*fps/1000.),fps//2)) # taking 1 fps #check
+            # frames =list(range(int(start*fps/1000.),int(end*fps/1000.),fps//2)) # taking 1 fps #check
+            # print(start*fps,end*fps,sr)
+            # frames =[x for x in range(int(start*fps/1000.),int(end*fps/1000.)) if x%sr==0] # will work only for lesser fps(subsampling) #check
+            frames =[x//1000 for x in range(int(start*fps),int(end*fps)) if x%sr==0] # will work only for lesser fps(subsampling) #check
+            print('frames: ',len(frames))
             # for the duration of text there will be many frames.
             # We can sample a few continuous frames at different time in this duration and each such group can represent this text
-            mframes = [frames[i:i+frame_seq_size] for i in range(0,len(frames)-frame_seq_size,frame_hop_len)]
-            mframes = [mf for mf in mframes if len(mf)]
-            if not len(mframes):
-                logging.warning('frames len %d  '%len(frames)+' \n>> '+str(frames))
-                continue
+
+            mframes = []
+            # mframes = [frames[i:i+frame_seq_size] for i in range(0,len(frames)-frame_seq_size,frame_hop_len)]
+            # mframes = [mf for mf in mframes if len(mf)]
+            # if not len(mframes):
+            #     logging.warning('frames len %d  '%len(frames)+' \n>> '+str(frames))
+            #     continue
 
             chunks.append({'text':text,
                            'context':context,
@@ -177,7 +187,9 @@ if __name__=='__main__':
     parser.add_argument('-j','--json',help='input json file')
     parser.add_argument('-d','--dir',help='input directory')
     parser.add_argument('--output',default='dataset',help='output path for json input and output dir for dir input')
-    parser.add_argument('--fps',default=12,type=int,help='fps of input video')
+    parser.add_argument('--fps',default=25,type=int,help='fps of input video')
+    parser.add_argument('--sr',default=5,type=int,help='sampling rate')
+
     parser.add_argument('--context',default=30,type=int,help='context size')
     parser.add_argument('--win',default=8,type=int,help='no of words in sent')
     parser.add_argument('--hop',default=5,type=int,help='hop length between two sents')
@@ -211,7 +223,8 @@ if __name__=='__main__':
         # global DE
         enc = 'dall_e/data/encoder.pkl'
         dec = 'dall_e/data/decoder.pkl'
-        DE = Dalle(enc=enc,dec=dec,proc_image_size=args.img_emb)
+        lowmem = False if torch.cuda.is_available() else True
+        DE = Dalle(enc=enc,dec=dec,proc_image_size=args.img_emb,lowmem=lowmem)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         DE.to(device)
 
@@ -220,7 +233,7 @@ if __name__=='__main__':
             with open(args.json) as f:
                 captions = json.load(f)
 
-            chunks = chunk_caption(captions,args.win,args.hop,args.context,'word',args.fps,ss=args.ss)
+            chunks = chunk_caption(captions,args.win,args.hop,args.context,'word',args.fps,sr=args.sr,ss=args.ss)
             fname = os.path.basename(args.json).replace('.en.json','')
             outdir = os.path.join(args.output,fname)
             json_path = os.path.join(outdir,'chunks.json')
@@ -254,7 +267,7 @@ if __name__=='__main__':
                 with open(file) as f:
                     captions = json.load(f)
 
-                chunks = chunk_caption(captions,args.win,args.hop,args.context,'word',args.fps,ss=args.ss)
+                chunks = chunk_caption(captions,args.win,args.hop,args.context,'word',args.fps,sr=args.sr,ss=args.ss)
 
 
                 os.makedirs(outdir,exist_ok=True)

@@ -55,3 +55,15 @@ moving testing before saving - x
 axial position embedding - x
 left padding -x
 batch encoding in data generation - x
+
+
+-----------------
+64 x 64 test
+
+fix 16x16 hard coding
+fix sampling while testing
+use frames instead of mframes
+use full context - no
+add image sequence as input and testing
+add [image] separator between frames
+add folder in drive - x
