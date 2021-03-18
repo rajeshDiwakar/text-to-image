@@ -93,6 +93,19 @@ def train(args):
 
     assert len(train_loader)>0, 'no image found in data dir'
 
+    l=int(math.sqrt(args.num_image_codes))
+    fixed_test_set = [test_dataset[i] for i in range(2)]
+    fixed_test_set_padded, fixed_test_set_img_length = GPTDataset.collate_fn(fixed_test_set) #label is empty
+    fixed_test_set_img_true = [s[0][-(s[1]*(args.num_image_codes+1)-1):].tolist() for s in fixed_test_set ]
+    # fixed_test_set_img_true = [[c for i,c in enumerate(im) if (1+i)%(args.num_image_codes+1)] for im in fixed_test_set_img_true]
+    fixed_test_set_img_true = [c  for im in fixed_test_set_img_true for i,c in enumerate(im) if (1+i)%(args.num_image_codes+1)]
+
+    # print(fixed_test_set_img_length)
+    # print(len(fixed_test_set_img_true[0]), len(fixed_test_set_img_true[1]) )
+    fixed_test_set_img_true = torch.LongTensor(fixed_test_set_img_true).reshape(-1,l,l)-50260
+
+
+
     sess_dir = os.path.join('sessions',args.session)
     # output_image_dir = os.path.join(sess_dir,'output')
     os.makedirs(sess_dir,exist_ok=True)
@@ -119,13 +132,15 @@ def train(args):
     # dataset.tokenizer.save_pretrained(output_dir)
     # sys.exit(0)
 
-    l=int(math.sqrt(args.num_image_codes))
+
     enc = 'dall_e/data/encoder.pkl'
     dec = 'dall_e/data/decoder.pkl'
     DE = Dalle(enc=enc,dec=dec,proc_image_size=l*8)
     DE.device = device
     DE.dec = DE.dec.to(device)
 
+    fixed_test_set_img_true = DE.decode(fixed_test_set_img_true)
+    fixed_test_set_img_true = torch.from_numpy(fixed_test_set_img_true)
     # print('weight shape',emb.weight.shape)
     # print(dataset.img_vocab_size+dataset.tokenizer.vocab_size)
     # print('embedding shape:',emb.shape)
@@ -140,13 +155,7 @@ def train(args):
     # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10*dataset_size,20*dataset_size], gamma=0.1)
     image_list = []
 
-    fixed_test_set = [test_dataset[i] for i in range(16)]
-    fixed_test_set_padded, fixed_test_set_img_length = GPTDataset.collate_fn(fixed_test_set) #label is empty
-    fixed_test_set_img_true = [s[0][-(s[1]*(args.num_image_codes+1)-1):].tolist() for s in fixed_test_set ]
-    fixed_test_set_img_true = [[c for i,c in enumerate(im) if i%(args.num_image_codes+1)] for im in fixed_test_set_img_true]
-    fixed_test_set_img_true = torch.LongTensor(fixed_test_set_img_true).reshape(-1,l,l)-50260
-    fixed_test_set_img_true = DE.decode(fixed_test_set_img_true)
-    fixed_test_set_img_true = torch.from_numpy(fixed_test_set_img_true)
+
     for epoch in range(args.epochs):
         running_loss = 0.0
 
@@ -221,7 +230,7 @@ def train(args):
                             probs = F.softmax(filtered_logits / temperature, dim = -1)
                             token = torch.multinomial(probs, 1)#torch.multinomial(probs, 1)[-1]
                             # ignore token for index of [image] token
-                            if i%(num_image_codes+1):
+                            if (1+i)%(num_image_codes+1):
                                 image_codes += [[t[0] for t in token.tolist()]] #[[57156], [53274]]
                             context = token
 
