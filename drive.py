@@ -88,7 +88,7 @@ class MyDrive(object):
             return drive_folders[folder_name]['id']
 
         parent_id, folder_name = parent_path
-        file = drive.CreateFile({'title': folder_name, 'parents': [{'id': parent_id}], 'mimeType'='application/vnd.google-apps.folder'})
+        file = drive.CreateFile({'title': folder_name, 'parents': [{'id': parent_id}], 'mimeType':'application/vnd.google-apps.folder'})
         # file.SetContentFile(path)
         file.Upload()
         self.cached_ids['/'.join(parent_path)] = file['id']
