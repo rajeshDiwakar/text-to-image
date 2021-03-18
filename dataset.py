@@ -313,7 +313,7 @@ class GPTDataset(Dataset):
         # labels = [torch.cat( [label,torch.empty(maxlen-len(label)).fill_(label[-1])] ) for label in labels]
         sequences = torch.stack(sequences,dim=0).long()
         attention = torch.tensor(attention)
-        labels = torch.stack(labels).long()
+        labels = torch.LongTensor(labels)
 
         return ({'input_ids':sequences,'attention_mask':attention}, labels)
 
