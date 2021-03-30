@@ -5,7 +5,7 @@ timelimit -t 600 -T 600 python main_dalle.py --train --data '/home/rajesh/work/l
 timelimit -t 600 -T 600 python main_dalle.py --train --data '/home/rajesh/work/limbo/text-to-image/dataset' --sess test11_l1 --test_every 1 --epochs 2 --save_every 2 --batch_size 8 --codebook_dim 512 --num_tokens 2048 --num_layers 3
 timelimit -t 600 -T 600 python main_dalle.py --train --data '/home/rajesh/work/limbo/text-to-image/dataset' --sess test1 --test_every 1 --epochs 2 --save_every 2 --batch_size 8
 timelimit -t 600 -T 600 python main_gpt.py --train --data dataset --sess test1 --test_every 1 --epochs 2 --save_every 2 --batch_size 8
-
+timelimit -t 600 python main_gpt.py --train --data 'dataset' --sess testx --test_every 1 --epochs 5 --save_every 2     --batch_size 2 --context_size 10 --gpt_n_ctx 350   --num_image_codes 64 --test_samples 2
 '''
 
 
@@ -94,7 +94,7 @@ def train(args):
     assert len(train_loader)>0, 'no image found in data dir'
 
     l=int(math.sqrt(args.num_image_codes))
-    fixed_test_set = [test_dataset[i] for i in range(16)]
+    fixed_test_set = [test_dataset[i] for i in range(args.test_samples)]
     fixed_test_set_padded, fixed_test_set_img_length = GPTDataset.collate_fn(fixed_test_set) #label is empty
     fixed_test_set_img_true = [s[0][-(s[1]*(args.num_image_codes+1)-1):].tolist() for s in fixed_test_set ]
     # fixed_test_set_img_true = [[c for i,c in enumerate(im) if (1+i)%(args.num_image_codes+1)] for im in fixed_test_set_img_true]
@@ -103,7 +103,7 @@ def train(args):
     # print(fixed_test_set_img_length)
     # print(len(fixed_test_set_img_true[0]), len(fixed_test_set_img_true[1]) )
     fixed_test_set_img_true = torch.LongTensor(fixed_test_set_img_true).reshape(-1,l,l)-50260
-
+    print("fixed_test_set_img_true: ",fixed_test_set_img_true.shape)
 
 
     sess_dir = os.path.join('sessions',args.session)
@@ -141,6 +141,7 @@ def train(args):
 
     fixed_test_set_img_true = DE.decode(fixed_test_set_img_true)
     fixed_test_set_img_true = torch.from_numpy(fixed_test_set_img_true)
+    print('After decoding, fixed_test_set_img_true:',fixed_test_set_img_true.shape)
     # print('weight shape',emb.weight.shape)
     # print(dataset.img_vocab_size+dataset.tokenizer.vocab_size)
     # print('embedding shape:',emb.shape)
@@ -155,6 +156,7 @@ def train(args):
     # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10*dataset_size,20*dataset_size], gamma=0.1)
     image_list = []
 
+    # sys.exit(0)
 
     for epoch in range(args.epochs):
         running_loss = 0.0
@@ -435,6 +437,8 @@ if __name__ =='__main__':
     parser.add_argument('--context_size',default=10,type=int)
     parser.add_argument('--gpt_n_ctx',default=512,type=int)
     parser.add_argument('--num_image_codes',default=256,choices=[64,256,1024],type=int)
+
+    parser.add_argument('--test_samples',type=int,default=2)
 
     args = parser.parse_args()
     if not args.test and not args.train:
