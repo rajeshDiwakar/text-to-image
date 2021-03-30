@@ -8,7 +8,7 @@ python prepare_stories_data.py --ss 10s --overwrite --context 60 -j '/home/rajes
                     --write_image 0 --text_emb 0 --img_emb 128
 
 python prepare_stories_data.py --ss 700s --overwrite --context 30 -j '/home/rajesh/work/data/storiesgan/data/vids/7IoF9IrZnXU.en.json' \
---write_image 0 --text_emb 0 --img_emb 128 --batch_size 2 --sr 1
+--write_image 0 --text_emb 0 --img_emb 64 --batch_size 2 --sr 1
 '''
 
 '''
